@@ -8,13 +8,15 @@
     "--cap-add=NET_ADMIN",
     "--security-opt=seccomp=unconfined",
     "--volume=${env:HOME}:${env:HOME}",
-    "--volume=envoy-build:/build",
-    "--network=host",
+//    "--volume=/Volumes/Projects/envoy-arm-build:/build",
+    "--volume=/build:/build",
+    "--volume=/Volumes/Projects:/Volumes/Projects",
+    "--network=host"
     // Uncomment next line if you have devcontainer.env
     // "--env-file=.devcontainer/devcontainer.env"
   ],
   "containerEnv": {
-    "ENVOY_SRCDIR": "${containerWorkspaceFolder}",
+    "ENVOY_SRCDIR": "${containerWorkspaceFolder}"
   },
   "remoteUser": "vscode",
   "containerUser": "vscode",
@@ -49,5 +51,5 @@
         "ms-python.python"
       ]
     }
-  },
+  }
 }

@@ -13,4 +13,4 @@ echo "build ${BAZEL_BUILD_EXTRA_OPTIONS}" | tee -a ~/.bazelrc
 # TODO(lizan): Fix API tooling and enable this again
 #echo "build --symlink_prefix=/" >> ~/.bazelrc
 
-[[ -n "${BUILD_DIR}" ]] && sudo chown -R "$(id -u):$(id -g)" "${BUILD_DIR}"
+# [[ -n "${BUILD_DIR}" ]] && sudo chown -R "$(id -u):$(id -g)" "${BUILD_DIR}"
