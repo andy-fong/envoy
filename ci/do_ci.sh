@@ -764,6 +764,7 @@ case $CI_TARGET in
         echo "  binary dir:  ${ENVOY_BINARY_DIR}"
 
         # Build release binaries
+#        BAZEL_BUILD_OPTIONS+=("--sandbox_debug")
         bazel build "${BAZEL_BUILD_OPTIONS[@]}" \
               "${BAZEL_RELEASE_OPTIONS[@]}" \
               --remote_download_outputs=toplevel \
