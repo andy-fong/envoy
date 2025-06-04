@@ -1681,7 +1681,7 @@ FilterManager::createFilterChain(const FilterChainFactory& filter_chain_factory)
 
   // This filter chain options is only used for the downstream HTTP filter chains for now. So, try
   // to set valid initial route only when the downstream callbacks is available.
-  FilterChainOptionsImpl options(downstream_callbacks.has_value() ? streamInfo().route() : nullptr);
+  FilterChainOptionsImpl options(streamInfo().route());
 
   UpgradeResult upgrade = UpgradeResult::UpgradeUnneeded;
 
