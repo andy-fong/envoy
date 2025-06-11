@@ -254,6 +254,31 @@ typed_config:
         append_action: APPEND_IF_EXISTS_OR_ADD
 )EOF",
                                  false);
+    config_helper_.prependFilter(R"EOF(
+name: upstream-header-mutation-disabled-by-default
+typed_config:
+  "@type": type.googleapis.com/envoy.extensions.filters.http.header_mutation.v3.HeaderMutation
+  mutations:
+    request_mutations:
+    - append:
+        header:
+          key: "upstream-request-global-flag-header-disabled-by-default"
+          value: "upstream-request-global-flag-header-value-disabled-by-default"
+        append_action: APPEND_IF_EXISTS_OR_ADD
+    response_mutations:
+    - append:
+        header:
+          key: "upstream-global-flag-header-disabled-by-default"
+          value: "upstream-global-flag-header-value-disabled-by-default"
+        append_action: APPEND_IF_EXISTS_OR_ADD
+    - append:
+        header:
+          key: "request-method-in-upstream-filter-disabled-by-default"
+          value: "%REQ(:METHOD)%"
+        append_action: APPEND_IF_EXISTS_OR_ADD
+disabled: true
+)EOF",
+                                 false);
 
     config_helper_.addConfigModifier(
         [route_level](
@@ -323,6 +348,8 @@ typed_config:
               // Try enable the filter that is disabled by default.
               route->mutable_typed_per_filter_config()->insert(
                   {"downstream-header-mutation-disabled-by-default", per_route_config});
+              route->mutable_typed_per_filter_config()->insert(
+                  {"upstream-header-mutation-disabled-by-default", per_route_config});
             }
 
             {
@@ -333,7 +360,6 @@ typed_config:
               per_route_config.PackFrom(filter_config);
               another_route->mutable_typed_per_filter_config()->insert(
                   {"downstream-header-mutation", per_route_config});
-              // Try disable upstream header mutation but this is not supported and should not work.
               another_route->mutable_typed_per_filter_config()->insert(
                   {"upstream-header-mutation", per_route_config});
             }
@@ -519,6 +545,13 @@ TEST_P(HeaderMutationIntegrationTest, TestHeaderMutationAllLevelsApplied) {
   EXPECT_EQ("upstream-request-global-flag-header-value",
             upstream_request_->headers()
                 .get(Http::LowerCaseString("upstream-request-global-flag-header"))[0]
+                ->value()
+                .getStringView());
+
+  EXPECT_EQ("upstream-request-global-flag-header-value-disabled-by-default",
+            upstream_request_->headers()
+                .get(Http::LowerCaseString(
+                    "upstream-request-global-flag-header-disabled-by-default"))[0]
                 ->value()
                 .getStringView());
 
@@ -749,7 +782,7 @@ TEST_P(HeaderMutationIntegrationTest, TestHeaderMutationPerRouteTable) {
   codec_client_->close();
 }
 
-TEST_P(HeaderMutationIntegrationTest, TestDisableDownstreamHeaderMutation) {
+TEST_P(HeaderMutationIntegrationTest, TestDisableDownstreamAndUpstreamHeaderMutation) {
   initializeFilter(AllRoutesLevel);
   codec_client_ = makeHttpConnection(lookupPort("http"));
   default_request_headers_.setPath("/disable/filter/route");
@@ -765,11 +798,9 @@ TEST_P(HeaderMutationIntegrationTest, TestDisableDownstreamHeaderMutation) {
                                               "default"))
                    .size());
 
-  EXPECT_EQ("upstream-request-global-flag-header-value",
-            upstream_request_->headers()
-                .get(Http::LowerCaseString("upstream-request-global-flag-header"))[0]
-                ->value()
-                .getStringView());
+  EXPECT_EQ(0, upstream_request_->headers()
+                .get(Http::LowerCaseString("upstream-request-global-flag-header")).size());
+
   EXPECT_EQ(upstream_request_->headers()
                 .get(Http::LowerCaseString("downstream-request-per-route-flag-header"))
                 .size(),
@@ -795,15 +826,12 @@ TEST_P(HeaderMutationIntegrationTest, TestDisableDownstreamHeaderMutation) {
       response->headers().get(Http::LowerCaseString("downstream-route-table-flag-header")).size(),
       0);
 
-  EXPECT_EQ("upstream-global-flag-header-value",
-            response->headers()
-                .get(Http::LowerCaseString("upstream-global-flag-header"))[0]
-                ->value()
-                .getStringView());
-  EXPECT_EQ("GET", response->headers()
-                       .get(Http::LowerCaseString("request-method-in-upstream-filter"))[0]
-                       ->value()
-                       .getStringView());
+  EXPECT_EQ(0, response->headers()
+                .get(Http::LowerCaseString("upstream-global-flag-header")).size());
+
+  EXPECT_EQ(0, response->headers()
+                       .get(Http::LowerCaseString("request-method-in-upstream-filter")).size());
+
   codec_client_->close();
 }
 

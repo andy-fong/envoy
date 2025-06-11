@@ -21,6 +21,19 @@ void FilterChainUtility::createFilterChainForFactories(
   bool added_missing_config_filter = false;
   for (const auto& filter_config_provider : filter_factories) {
     // If this filter is disabled explicitly, skip trying to create it.
+    auto disabled = options.filterDisabled(filter_config_provider.provider->name());
+    if (disabled.has_value()) {
+      std::cout << __PRETTY_FUNCTION__ << ": " << filter_config_provider.provider->name()
+        << ": " << disabled.value()
+        << ": " << filter_config_provider.disabled 
+        << std::endl; 
+    } else {
+      std::cout << __PRETTY_FUNCTION__ << ": " << filter_config_provider.provider->name()
+        << ": " << "<not_set>"
+        << ": " << filter_config_provider.disabled 
+        << std::endl; 
+
+    }
     if (options.filterDisabled(filter_config_provider.provider->name())
             .value_or(filter_config_provider.disabled)) {
       continue;

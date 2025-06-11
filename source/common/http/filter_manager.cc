@@ -1679,8 +1679,6 @@ FilterManager::createFilterChain(const FilterChainFactory& filter_chain_factory)
   OptRef<DownstreamStreamFilterCallbacks> downstream_callbacks =
       filter_manager_callbacks_.downstreamCallbacks();
 
-  // This filter chain options is only used for the downstream HTTP filter chains for now. So, try
-  // to set valid initial route only when the downstream callbacks is available.
   FilterChainOptionsImpl options(streamInfo().route());
 
   UpgradeResult upgrade = UpgradeResult::UpgradeUnneeded;
@@ -1695,6 +1693,13 @@ FilterManager::createFilterChain(const FilterChainFactory& filter_chain_factory)
     }
     // If the upgrade is unnecessary or the upgrade filter chain is rejected, fall through to
     // create the default filter chain.
+  } else {
+    auto route = streamInfo().route();
+    auto disabled = route->filterDisabled("upstream-header-mutation-disabled-by-default");
+    std::cout << __PRETTY_FUNCTION__ << ": route name: " << route->routeName()
+      << " perFilterConfigs: " << route->perFilterConfigs("upstream-header-mutation-disabled-by-default").size()
+      << " filterDisabled: " << (disabled ? (disabled.value() ? "true" : "false") : "not_set")
+      << std::endl;
   }
 
   state_.create_chain_result_ =

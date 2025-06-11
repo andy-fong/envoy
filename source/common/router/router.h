@@ -250,6 +250,9 @@ public:
     if (upstream_http_filter_factories_.empty()) {
       return false;
     }
+    auto disabled = options.filterDisabled("upstream-header-mutation-disabled-by-default");
+    std::cout << __PRETTY_FUNCTION__ << ": " << " filterDisabled: " << (disabled ? (disabled.value() ? "true" : "false") : "not_set")
+    << std::endl;
     Http::FilterChainUtility::createFilterChainForFactories(manager, options,
                                                             upstream_http_filter_factories_);
     return true;

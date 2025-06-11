@@ -74,12 +74,15 @@ public:
   }
 
   const HttpFilterProto getAddHeaderFilterConfig(const std::string& name, const std::string& key,
-                                                 const std::string& value) {
+                                                 const std::string& value, bool disabled = false) {
     HttpFilterProto filter_config;
     filter_config.set_name(name);
     auto configuration = test::integration::filters::AddHeaderFilterConfig();
     configuration.set_header_key(key);
     configuration.set_header_value(value);
+    if (disabled) {
+      filter_config.set_disabled(true);
+    }
     filter_config.mutable_typed_config()->PackFrom(configuration);
     return filter_config;
   }
@@ -175,6 +178,28 @@ TEST_P(StaticRouterOrClusterFiltersIntegrationTest,
   auto headers = sendRequestAndGetHeaders();
   EXPECT_THAT(*headers, Not(HeaderValueOf("x-test-router", "aa")));
   EXPECT_THAT(*headers, HeaderValueOf("x-test-cluster", "bb"));
+}
+
+TEST_P(StaticRouterOrClusterFiltersIntegrationTest,
+       ClusterUpstreamFiltersDisabled) {
+  addStaticRouterFilter(
+      getAddHeaderFilterConfig("envoy.test.add_header_upstream", "x-test-router", "aa", true));
+  addCodecRouterFilter();
+  initialize();
+
+  auto headers = sendRequestAndGetHeaders();
+  EXPECT_THAT(*headers, Not(HeaderValueOf("x-test-router", "aa")));
+}
+
+TEST_P(StaticRouterOrClusterFiltersIntegrationTest,
+       RouterUpstreamFiltersDisabled) {
+  addStaticClusterFilter(
+      getAddHeaderFilterConfig("envoy.test.add_header_upstream", "x-test-cluster", "bb", true));
+  addCodecClusterFilter();
+  initialize();
+
+  auto headers = sendRequestAndGetHeaders();
+  EXPECT_THAT(*headers, Not(HeaderValueOf("x-test-cluster", "bb")));
 }
 
 TEST_P(StaticRouterOrClusterFiltersIntegrationTest,
@@ -304,6 +329,7 @@ public:
               (*cluster->mutable_typed_extension_protocol_options())
                   ["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"]);
       auto* filter = protocol_options.add_http_filters();
+      filter->set_disabled(false);
       setDynamicFilterConfig(filter, name, apply_without_warming, set_default_config, rate_limit,
                              second_connection);
       (*cluster->mutable_typed_extension_protocol_options())
@@ -326,6 +352,7 @@ public:
           auto* filter = router.add_upstream_http_filters();
           setDynamicFilterConfig(filter, name, apply_without_warming, set_default_config,
                                  rate_limit, second_connection);
+          filter->set_disabled(false);
           router_filter.mutable_typed_config()->PackFrom(router);
         });
   }

@@ -1022,13 +1022,14 @@ public:
 
   // Http::FilterChainFactory
   bool createFilterChain(Http::FilterChainManager& manager,
-                         const Http::FilterChainOptions&) const override {
+                         const Http::FilterChainOptions& options) const override {
     if (http_filter_factories_.empty()) {
       return false;
     }
 
+    std::cout << __PRETTY_FUNCTION__ << std::endl; 
     Http::FilterChainUtility::createFilterChainForFactories(
-        manager, Http::EmptyFilterChainOptions{}, http_filter_factories_);
+        manager, options, http_filter_factories_);
     return true;
   }
   bool createUpgradeFilterChain(absl::string_view, const UpgradeMap*, Http::FilterChainManager&,

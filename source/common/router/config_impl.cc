@@ -1557,10 +1557,13 @@ absl::Status RouteEntryImplBase::validateClusters(
 }
 
 absl::optional<bool> RouteEntryImplBase::filterDisabled(absl::string_view config_name) const {
+  std::cout << __PRETTY_FUNCTION__ << ": " << config_name << std::endl; 
   absl::optional<bool> result = per_filter_configs_->disabled(config_name);
   if (result.has_value()) {
+    std::cout << __PRETTY_FUNCTION__ << ": " << config_name << ": " << result.value() << std::endl; 
     return result.value();
   }
+  std::cout << __PRETTY_FUNCTION__ << ": " << config_name << ": falling back to vhost" << std::endl; 
   return vhost_->filterDisabled(config_name);
 }
 
