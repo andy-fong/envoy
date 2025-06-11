@@ -33,6 +33,7 @@ public:
       : HttpIntegrationTest(Http::CodecClient::Type::HTTP1, GetParam()) {}
 
   void setPerFilterConfigsWithSameKey(const std::string& prefix) {
+    ASSERT_TRUE(prefix == "downstream" || prefix == "upstream");
     config_helper_.addConfigModifier(
         [prefix](
             envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager&
@@ -353,7 +354,7 @@ disabled: true
             }
 
             {
-              // Per route disable downstream header mutation.
+              // Per route disable downstream and upstream header mutation.
               envoy::config::route::v3::FilterConfig filter_config;
               filter_config.set_disabled(true);
               ProtobufWkt::Any per_route_config;
@@ -548,6 +549,8 @@ TEST_P(HeaderMutationIntegrationTest, TestHeaderMutationAllLevelsApplied) {
                 ->value()
                 .getStringView());
 
+  // This header is injected by the "upstream-header-mutation-disabled-by-default" upstream filter which is 
+  // disabled by default and re-enabled at route level at /default/route path 
   EXPECT_EQ("upstream-request-global-flag-header-value-disabled-by-default",
             upstream_request_->headers()
                 .get(Http::LowerCaseString(
@@ -577,6 +580,18 @@ TEST_P(HeaderMutationIntegrationTest, TestHeaderMutationAllLevelsApplied) {
                 .get(Http::LowerCaseString("upstream-global-flag-header"))[0]
                 ->value()
                 .getStringView());
+
+  // These two headers are injected by the "upstream-header-mutation-disabled-by-default" upstream filter which is 
+  // disabled by default and re-enabled at route level at /default/route path 
+  EXPECT_EQ("upstream-global-flag-header-value-disabled-by-default",
+            response->headers()
+                .get(Http::LowerCaseString("upstream-global-flag-header-disabled-by-default"))[0]
+                ->value()
+                .getStringView());
+  EXPECT_EQ("GET", response->headers()
+                       .get(Http::LowerCaseString("request-method-in-upstream-filter-disabled-by-default"))[0]
+                       ->value()
+                       .getStringView());
 
   testResponseHeaderMutation(response.get(), AllRoutesLevel);
 
@@ -782,7 +797,7 @@ TEST_P(HeaderMutationIntegrationTest, TestHeaderMutationPerRouteTable) {
   codec_client_->close();
 }
 
-TEST_P(HeaderMutationIntegrationTest, TestDisableDownstreamAndUpstreamHeaderMutation) {
+TEST_P(HeaderMutationIntegrationTest, TestPerRouteDisableDownstreamAndUpstreamHeaderMutation) {
   initializeFilter(AllRoutesLevel);
   codec_client_ = makeHttpConnection(lookupPort("http"));
   default_request_headers_.setPath("/disable/filter/route");
@@ -800,6 +815,11 @@ TEST_P(HeaderMutationIntegrationTest, TestDisableDownstreamAndUpstreamHeaderMuta
 
   EXPECT_EQ(0, upstream_request_->headers()
                 .get(Http::LowerCaseString("upstream-request-global-flag-header")).size());
+
+  EXPECT_EQ(0, upstream_request_->headers()
+                   .get(Http::LowerCaseString(
+                      "upstream-request-global-flag-header-disabled-by-default"))
+                   .size());
 
   EXPECT_EQ(upstream_request_->headers()
                 .get(Http::LowerCaseString("downstream-request-per-route-flag-header"))
@@ -828,6 +848,14 @@ TEST_P(HeaderMutationIntegrationTest, TestDisableDownstreamAndUpstreamHeaderMuta
 
   EXPECT_EQ(0, response->headers()
                 .get(Http::LowerCaseString("upstream-global-flag-header")).size());
+
+  EXPECT_EQ(0, response->headers()
+                   .get(Http::LowerCaseString("upstream-global-flag-header-disabled-by-default"))
+                   .size());
+
+  EXPECT_EQ(0, response->headers()
+                   .get(Http::LowerCaseString("request-method-in-upstream-filter-disabled-by-default"))
+                   .size());
 
   EXPECT_EQ(0, response->headers()
                        .get(Http::LowerCaseString("request-method-in-upstream-filter")).size());
