@@ -1695,10 +1695,13 @@ FilterManager::createFilterChain(const FilterChainFactory& filter_chain_factory)
     // create the default filter chain.
   } else {
     auto route = streamInfo().route();
-    auto disabled = route->filterDisabled("upstream-header-mutation-disabled-by-default");
-    std::cout << __PRETTY_FUNCTION__ << ": route name: " << route->routeName()
-      << " perFilterConfigs: " << route->perFilterConfigs("upstream-header-mutation-disabled-by-default").size()
+    auto disabled = route->filterDisabled("upstream-header-mutation");
+    std::cout << __PRETTY_FUNCTION__ << "upstream-header-mutation: route name: " << route->routeName()
+      << " perFilterConfigs: " << route->perFilterConfigs("upstream-header-mutation").size()
       << " filterDisabled: " << (disabled ? (disabled.value() ? "true" : "false") : "not_set")
+      << std::endl;
+    std::cout << __PRETTY_FUNCTION__ << "downstream-header-mutation: route name: " << route->routeName()
+      << " perFilterConfigs: " << route->perFilterConfigs("downstream-header-mutation").size()
       << std::endl;
   }
 
