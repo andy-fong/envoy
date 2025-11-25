@@ -598,6 +598,13 @@ pub trait EnvoyHttpFilter {
   /// Returns true if the header is set successfully.
   fn set_request_header(&mut self, key: &str, value: &[u8]) -> bool;
 
+  /// Add a new request header with the given key and value.
+  ///
+  /// This will add a new header even if the header with the same key already exists.
+  ///
+  /// Returns true if the header is added successfully.
+  fn add_request_header(&mut self, key: &str, value: &[u8]) -> bool;
+
   /// Remove the request header with the given key.
   ///
   /// Returns true if the header is removed successfully.
@@ -692,6 +699,13 @@ pub trait EnvoyHttpFilter {
   ///
   /// Returns true if the operation is successful.
   fn set_response_trailer(&mut self, key: &str, value: &[u8]) -> bool;
+
+  /// Add a new response header with the given key and value.
+  ///
+  /// This will add a new header even if the header with the same key already exists.
+  ///
+  /// Returns true if the header is added successfully.
+  fn add_response_header(&mut self, key: &str, value: &[u8]) -> bool;
 
   /// Remove the response trailer with the given key.
   ///
@@ -1167,6 +1181,22 @@ impl EnvoyHttpFilter for EnvoyHttpFilterImpl {
     }
   }
 
+  fn add_request_header(&mut self, key: &str, value: &[u8]) -> bool {
+    let key_ptr = key.as_ptr();
+    let key_size = key.len();
+    let value_ptr = value.as_ptr();
+    let value_size = value.len();
+    unsafe {
+      abi::envoy_dynamic_module_callback_http_add_request_header(
+        self.raw_ptr,
+        key_ptr as *const _ as *mut _,
+        key_size,
+        value_ptr as *const _ as *mut _,
+        value_size,
+      )
+    }
+  }
+
   fn get_request_trailer_value(&self, key: &str) -> Option<EnvoyBuffer> {
     self.get_header_value_impl(
       key,
@@ -1232,6 +1262,22 @@ impl EnvoyHttpFilter for EnvoyHttpFilterImpl {
     let value_size = value.len();
     unsafe {
       abi::envoy_dynamic_module_callback_http_set_response_header(
+        self.raw_ptr,
+        key_ptr as *const _ as *mut _,
+        key_size,
+        value_ptr as *const _ as *mut _,
+        value_size,
+      )
+    }
+  }
+
+  fn add_response_header(&mut self, key: &str, value: &[u8]) -> bool {
+    let key_ptr = key.as_ptr();
+    let key_size = key.len();
+    let value_ptr = value.as_ptr();
+    let value_size = value.len();
+    unsafe {
+      abi::envoy_dynamic_module_callback_http_add_response_header(
         self.raw_ptr,
         key_ptr as *const _ as *mut _,
         key_size,

@@ -1143,6 +1143,40 @@ size_t envoy_dynamic_module_callback_http_get_response_trailer(
     size_t index);
 
 /**
+ * envoy_dynamic_module_callback_http_add_request_header is called by the module to add
+ * the value of the request header with the given key. If the header does not exist, it will be
+ * created. If the header already exists, all existing values will be removed and the new value will
+ * be set. When the given value is null, the header will be removed if the key exists.
+ *
+ * @param filter_envoy_ptr is the pointer to the DynamicModuleHttpFilter object of the
+ * corresponding HTTP filter.
+ * @param key is the key of the header.
+ * @param key_length is the length of the key.
+ * @param value is the pointer to the buffer of the value. It can be null to remove the header.
+ * @param value_length is the length of the value.
+ * @return true if the operation is successful, false otherwise.
+ *
+ * Note that this only adds the header to the underlying Envoy object. Whether or not the header is
+ * actually sent to the upstream depends on the phase of the execution and subsequent
+ * filters. In other words, returning true from this function does not guarantee that the header
+ * will be sent to the upstream.
+ */
+bool envoy_dynamic_module_callback_http_add_request_header(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr,
+    envoy_dynamic_module_type_buffer_module_ptr key, size_t key_length,
+    envoy_dynamic_module_type_buffer_module_ptr value, size_t value_length);
+
+/**
+ * envoy_dynamic_module_callback_http_add_response_header is exactly the same as the
+ * envoy_dynamic_module_callback_http_add_request_header, but for the response headers.
+ * See the comments on envoy_dynamic_module_callback_http_add_request_header for more details.
+ */
+bool envoy_dynamic_module_callback_http_add_response_header(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr,
+    envoy_dynamic_module_type_buffer_module_ptr key, size_t key_length,
+    envoy_dynamic_module_type_buffer_module_ptr value, size_t value_length);
+
+/**
  * envoy_dynamic_module_callback_http_get_request_headers_count is called by the module to get the
  * number of request headers. Combined with envoy_dynamic_module_callback_http_get_request_headers,
  * this can be used to iterate over all request headers.
