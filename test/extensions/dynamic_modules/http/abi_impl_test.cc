@@ -153,6 +153,100 @@ INSTANTIATE_TEST_SUITE_P(
                       envoy_dynamic_module_callback_http_get_response_header,
                       envoy_dynamic_module_callback_http_get_response_trailer));
 
+// Parameterized test for add_header_value
+using AddHeaderValueCallbackType = bool (*)(envoy_dynamic_module_type_http_filter_envoy_ptr,
+                                            envoy_dynamic_module_type_buffer_module_ptr, size_t,
+                                            envoy_dynamic_module_type_buffer_module_ptr, size_t);
+
+class DynamicModuleHttpFilterAddHeaderValueTest
+    : public DynamicModuleHttpFilterTest,
+      public ::testing::WithParamInterface<AddHeaderValueCallbackType> {};
+
+TEST_P(DynamicModuleHttpFilterAddHeaderValueTest, AddHeaderValue) {
+  AddHeaderValueCallbackType callback = GetParam();
+
+  // Test with nullptr accessors.
+  const std::string key = "key";
+  const std::string value = "value";
+  envoy_dynamic_module_type_buffer_envoy_ptr key_ptr = const_cast<char*>(key.data());
+  size_t key_length = key.size();
+  envoy_dynamic_module_type_buffer_envoy_ptr value_ptr = const_cast<char*>(value.data());
+  size_t value_length = value.size();
+  EXPECT_FALSE(callback(filter_.get(), key_ptr, key_length, value_ptr, value_length));
+
+  std::initializer_list<std::pair<std::string, std::string>> headers = {
+      {"single", "value"}, {"multi", "value1"}, {"multi", "value2"}};
+  Http::TestRequestHeaderMapImpl request_headers{headers};
+  Http::TestRequestTrailerMapImpl request_trailers{headers};
+  Http::TestResponseHeaderMapImpl response_headers{headers};
+  Http::TestResponseTrailerMapImpl response_trailers{headers};
+  EXPECT_CALL(decoder_callbacks_, requestHeaders())
+      .WillRepeatedly(testing::Return(makeOptRef<RequestHeaderMap>(request_headers)));
+  EXPECT_CALL(decoder_callbacks_, requestTrailers())
+      .WillRepeatedly(testing::Return(makeOptRef<RequestTrailerMap>(request_trailers)));
+  EXPECT_CALL(encoder_callbacks_, responseHeaders())
+      .WillRepeatedly(testing::Return(makeOptRef<ResponseHeaderMap>(response_headers)));
+  EXPECT_CALL(encoder_callbacks_, responseTrailers())
+      .WillRepeatedly(testing::Return(makeOptRef<ResponseTrailerMap>(response_trailers)));
+
+  Http::HeaderMap* header_map = nullptr;
+  if (callback == &envoy_dynamic_module_callback_http_add_request_header) {
+    header_map = &request_headers;
+  } else if (callback == &envoy_dynamic_module_callback_http_add_response_header) {
+    header_map = &response_headers;
+  } else {
+    FAIL();
+  }
+
+  // Non existing key.
+  const std::string new_key = "new_one";
+  const std::string new_value = "value";
+  envoy_dynamic_module_type_buffer_envoy_ptr new_key_ptr = const_cast<char*>(new_key.data());
+  size_t new_key_length = new_key.size();
+  envoy_dynamic_module_type_buffer_envoy_ptr new_value_ptr = const_cast<char*>(new_value.data());
+  size_t new_value_length = new_value.size();
+  EXPECT_TRUE(
+      callback(filter_.get(), new_key_ptr, new_key_length, new_value_ptr, new_value_length));
+
+  auto values = header_map->get(Envoy::Http::LowerCaseString(new_key));
+  EXPECT_EQ(values.size(), 1);
+  EXPECT_EQ(values[0]->value().getStringView(), new_value);
+
+  // Existing non-multi key.
+  const std::string key2 = "single";
+  const std::string value2 = "new_value";
+  envoy_dynamic_module_type_buffer_envoy_ptr key_ptr2 = const_cast<char*>(key2.data());
+  size_t key_length2 = key2.size();
+  envoy_dynamic_module_type_buffer_envoy_ptr value_ptr2 = const_cast<char*>(value2.data());
+  size_t value_length2 = value2.size();
+  EXPECT_TRUE(callback(filter_.get(), key_ptr2, key_length2, value_ptr2, value_length2));
+
+  auto values2 = header_map->get(Envoy::Http::LowerCaseString(key2));
+  EXPECT_EQ(values2.size(), 2);
+  EXPECT_EQ(values2[0]->value().getStringView(), "value");
+  EXPECT_EQ(values2[1]->value().getStringView(), value2);
+
+  // Existing multi key must be replaced by a single value.
+  const std::string key3 = "multi";
+  const std::string value3 = "new_value";
+  envoy_dynamic_module_type_buffer_envoy_ptr key_ptr3 = const_cast<char*>(key3.data());
+  size_t key_length3 = key3.size();
+  envoy_dynamic_module_type_buffer_envoy_ptr value_ptr3 = const_cast<char*>(value3.data());
+  size_t value_length3 = value3.size();
+  EXPECT_TRUE(callback(filter_.get(), key_ptr3, key_length3, value_ptr3, value_length3));
+
+  auto values3 = header_map->get(Envoy::Http::LowerCaseString(key3));
+  EXPECT_EQ(values3.size(), 3);
+  EXPECT_EQ(values3[0]->value().getStringView(), "value1");
+  EXPECT_EQ(values3[1]->value().getStringView(), "value2");
+  EXPECT_EQ(values3[2]->value().getStringView(), value3);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    AddHeadersCountTests, DynamicModuleHttpFilterAddHeaderValueTest,
+    ::testing::Values(envoy_dynamic_module_callback_http_add_request_header,
+                      envoy_dynamic_module_callback_http_add_response_header));
+
 // Parameterized test for set_header_value
 using SetHeaderValueCallbackType = bool (*)(envoy_dynamic_module_type_http_filter_envoy_ptr,
                                             envoy_dynamic_module_type_buffer_module_ptr, size_t,

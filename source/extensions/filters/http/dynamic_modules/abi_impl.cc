@@ -411,6 +411,29 @@ size_t envoy_dynamic_module_callback_http_get_response_trailer(
                             result_buffer_length_ptr, index);
 }
 
+bool addHeaderValueImpl(HeadersMapOptRef map, envoy_dynamic_module_type_buffer_module_ptr key,
+                        size_t key_length, envoy_dynamic_module_type_buffer_module_ptr value,
+                        size_t value_length) {
+  if (!map.has_value()) {
+    return false;
+  }
+  if (value == nullptr) {
+    return false;
+  }
+  absl::string_view key_view(key, key_length);
+  absl::string_view value_view(value, value_length);
+  map->addCopy(Envoy::Http::LowerCaseString(key_view), value_view);
+  return true;
+}
+
+bool envoy_dynamic_module_callback_http_add_request_header(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr,
+    envoy_dynamic_module_type_buffer_module_ptr key, size_t key_length,
+    envoy_dynamic_module_type_buffer_module_ptr value, size_t value_length) {
+  DynamicModuleHttpFilter* filter = static_cast<DynamicModuleHttpFilter*>(filter_envoy_ptr);
+  return addHeaderValueImpl(filter->requestHeaders(), key, key_length, value, value_length);
+}
+
 bool setHeaderValueImpl(HeadersMapOptRef map, envoy_dynamic_module_type_buffer_module_ptr key,
                         size_t key_length, envoy_dynamic_module_type_buffer_module_ptr value,
                         size_t value_length) {
@@ -442,6 +465,14 @@ bool envoy_dynamic_module_callback_http_set_request_trailer(
     envoy_dynamic_module_type_buffer_module_ptr value, size_t value_length) {
   DynamicModuleHttpFilter* filter = static_cast<DynamicModuleHttpFilter*>(filter_envoy_ptr);
   return setHeaderValueImpl(filter->requestTrailers(), key, key_length, value, value_length);
+}
+
+bool envoy_dynamic_module_callback_http_add_response_header(
+    envoy_dynamic_module_type_http_filter_envoy_ptr filter_envoy_ptr,
+    envoy_dynamic_module_type_buffer_module_ptr key, size_t key_length,
+    envoy_dynamic_module_type_buffer_module_ptr value, size_t value_length) {
+  DynamicModuleHttpFilter* filter = static_cast<DynamicModuleHttpFilter*>(filter_envoy_ptr);
+  return addHeaderValueImpl(filter->responseHeaders(), key, key_length, value, value_length);
 }
 
 bool envoy_dynamic_module_callback_http_set_response_header(
