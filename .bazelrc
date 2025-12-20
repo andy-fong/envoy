@@ -25,7 +25,7 @@ fetch --color=yes
 run --color=yes
 
 build --color=yes
-build --jobs=HOST_CPUS-1
+build --jobs=3
 build --workspace_status_command="bash bazel/get_workspace_status"
 build --incompatible_strict_action_env
 build --java_runtime_version=remotejdk_11
@@ -92,8 +92,8 @@ build:linux --copt=-fdebug-types-section
 build:linux --copt=-fPIC
 build:linux --cxxopt=-fsized-deallocation --host_cxxopt=-fsized-deallocation
 build:linux --conlyopt=-fexceptions
-build:linux --fission=dbg,opt
-build:linux --features=per_object_debug_info
+build:linux --fission=no
+build:linux --features=-per_object_debug_info
 
 # macOS
 build:macos --action_env=PATH=/opt/homebrew/bin:/opt/local/bin:/usr/local/bin:/usr/bin:/bin

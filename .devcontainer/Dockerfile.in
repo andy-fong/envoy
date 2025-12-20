@@ -15,4 +15,6 @@ RUN apt-get -y update \
   && mv /home/$USERNAME $BUILD_DIR && chown $USERNAME:$USERNAME $BUILD_DIR \
   && usermod -d $BUILD_DIR $USERNAME
 
+RUN apt-get -y install default-jre autoconf-archive zlib1g-dev 2>&1
+
 ENV DEBIAN_FRONTEND=
