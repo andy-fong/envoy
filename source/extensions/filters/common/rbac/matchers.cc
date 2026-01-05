@@ -4,6 +4,7 @@
 #include "envoy/upstream/upstream.h"
 
 #include "source/common/config/utility.h"
+#include "source/common/runtime/runtime_features.h"
 #include "source/extensions/filters/common/rbac/matcher_extension.h"
 
 namespace Envoy {
@@ -156,9 +157,18 @@ bool NotMatcher::matches(const Network::Connection& connection,
   return !matcher_->matches(connection, headers, info);
 }
 
+HeaderMatcher::HeaderMatcher(const envoy::config::route::v3::HeaderMatcher& matcher,
+                             Server::Configuration::CommonFactoryContext& context)
+    : header_(matcher, context),
+      match_headers_individually_(Runtime::runtimeFeatureEnabled(
+          "envoy.reloadable_features.rbac_match_headers_individually")) {}
+
 bool HeaderMatcher::matches(const Network::Connection&,
                             const Envoy::Http::RequestHeaderMap& headers,
                             const StreamInfo::StreamInfo&) const {
+  if (match_headers_individually_) {
+    return Envoy::Http::HeaderUtility::matchHeadersIndividually(headers, header_);
+  }
   return Envoy::Http::HeaderUtility::matchHeaders(headers, header_);
 }
 

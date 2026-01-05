@@ -374,6 +374,114 @@ string_match:
   EXPECT_TRUE(HeaderUtility::matchHeaders(headers, header_data));
 }
 
+// Tests for matchesHeadersIndividually - validates each header value individually
+TEST_F(MatchHeadersTest, MatchesHeadersIndividuallyExactMatch) {
+  // With old behavior: headers with values "true" and "false" would concatenate to "true,false"
+  // and not match "true". With new behavior, each value is checked individually.
+  TestRequestHeaderMapImpl headers{{"match-header", "true"}, {"match-header", "false"}};
+
+  const std::string yaml = R"EOF(
+name: match-header
+string_match:
+  exact: "true"
+  )EOF";
+
+  std::vector<HeaderUtility::HeaderDataPtr> header_data;
+  header_data.push_back(
+      std::make_unique<HeaderUtility::HeaderData>(parseHeaderMatcherFromYaml(yaml), context_));
+  EXPECT_FALSE(HeaderUtility::matchHeaders(headers, header_data));
+  EXPECT_TRUE(HeaderUtility::matchHeadersIndividually(headers, *header_data[0]));
+}
+
+// Test the invert_match case - if ANY value matches, the inverted result is false
+TEST_F(MatchHeadersTest, MatchesHeadersIndividuallyExactMatchInvert) {
+  TestRequestHeaderMapImpl headers{{"match-header", "true"}, {"match-header", "other"}};
+
+  const std::string yaml = R"EOF(
+name: match-header
+string_match:
+  exact: "true"
+invert_match: true
+  )EOF";
+
+  auto header_data = HeaderUtility::HeaderData(parseHeaderMatcherFromYaml(yaml), context_);
+
+  EXPECT_FALSE(HeaderUtility::matchHeadersIndividually(headers, header_data));
+}
+
+// Test no values match
+TEST_F(MatchHeadersTest, MatchesHeadersIndividuallyNoMatch) {
+  TestRequestHeaderMapImpl headers{{"match-header", "foo"}, {"match-header", "bar"}};
+
+  const std::string yaml = R"EOF(
+name: match-header
+string_match:
+  exact: "true"
+  )EOF";
+
+  auto header_data = HeaderUtility::HeaderData(parseHeaderMatcherFromYaml(yaml), context_);
+
+  EXPECT_FALSE(header_data.matchesHeadersIndividually(headers));
+}
+
+// Test single value matches
+TEST_F(MatchHeadersTest, MatchesHeadersIndividuallySingleValue) {
+  TestRequestHeaderMapImpl headers{{"match-header", "true"}};
+
+  const std::string yaml = R"EOF(
+name: match-header
+string_match:
+  exact: "true"
+  )EOF";
+
+  HeaderUtility::HeaderData header_data =
+      HeaderUtility::HeaderData(parseHeaderMatcherFromYaml(yaml), context_);
+
+  EXPECT_TRUE(header_data.matchesHeaders(headers));
+  EXPECT_TRUE(header_data.matchesHeadersIndividually(headers));
+}
+
+// matchesHeadersIndividually on HeaderDataPresentMatch delegates to matchesHeaders.
+TEST_F(MatchHeadersTest, MatchesHeadersIndividuallyPresentMatch) {
+  TestRequestHeaderMapImpl present{{"match-header", "val"}};
+  TestRequestHeaderMapImpl absent{{"other-header", "val"}};
+
+  // present_match: true
+  const std::string yaml = R"EOF(
+name: match-header
+present_match: true
+  )EOF";
+
+  HeaderUtility::HeaderData header_data(parseHeaderMatcherFromYaml(yaml), context_);
+
+  EXPECT_TRUE(header_data.matchesHeadersIndividually(present));
+  EXPECT_FALSE(header_data.matchesHeadersIndividually(absent));
+
+  // present_match: true, invert_match: true
+  const std::string yaml2 = R"EOF(
+name: match-header
+present_match: true
+invert_match: true
+  )EOF";
+
+  HeaderUtility::HeaderData header_data2(parseHeaderMatcherFromYaml(yaml2), context_);
+
+  EXPECT_FALSE(header_data2.matchesHeadersIndividually(present));
+  EXPECT_TRUE(header_data2.matchesHeadersIndividually(absent));
+
+  // present_match: true, treat_missing_header_as_empty: true — always matches.
+  const std::string yaml3 = R"EOF(
+name: match-header
+present_match: true
+treat_missing_header_as_empty: true
+  )EOF";
+
+  HeaderUtility::HeaderData header_data3(parseHeaderMatcherFromYaml(yaml3), context_);
+
+  EXPECT_TRUE(header_data3.matchesHeadersIndividually(present));
+  EXPECT_TRUE(header_data3.matchesHeadersIndividually(absent));
+}
+
 TEST_F(MatchHeadersTest, MustMatchAllHeaderData) {
   TestRequestHeaderMapImpl matching_headers_1{{"match-header-A", "1"}, {"match-header-B", "2"}};
   TestRequestHeaderMapImpl matching_headers_2{

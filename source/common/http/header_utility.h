@@ -86,6 +86,12 @@ public:
     bool matchesHeaders(const HeaderMap& headers) const override {
       return HeaderUtility::matchHeaders(headers, *this);
     };
+
+    // Matches each header value individually.
+    bool matchesHeadersIndividually(const HeaderMap& headers) const override {
+      return HeaderUtility::matchHeadersIndividually(headers, *this);
+    };
+
   };
 
   using HeaderDataPtr = std::unique_ptr<HeaderData>;
@@ -127,6 +133,8 @@ public:
                            const std::vector<HeaderDataPtr>& config_headers);
 
   static bool matchHeaders(const HeaderMap& request_headers, const HeaderData& config_header);
+
+  static bool matchHeadersIndividually(const HeaderMap& request_headers, const HeaderData& config_header);
 
   /**
    * Validates that a header value is valid, according to RFC 7230, section 3.2.

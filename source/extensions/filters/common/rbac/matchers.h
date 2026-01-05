@@ -140,14 +140,14 @@ private:
 class HeaderMatcher : public Matcher {
 public:
   HeaderMatcher(const envoy::config::route::v3::HeaderMatcher& matcher,
-                Server::Configuration::CommonFactoryContext& context)
-      : header_(matcher, context) {}
+                Server::Configuration::CommonFactoryContext& context);
 
   bool matches(const Network::Connection& connection, const Envoy::Http::RequestHeaderMap& headers,
                const StreamInfo::StreamInfo&) const override;
 
 private:
   const Envoy::Http::HeaderUtility::HeaderData header_;
+  const bool match_headers_individually_;
 };
 
 /**
