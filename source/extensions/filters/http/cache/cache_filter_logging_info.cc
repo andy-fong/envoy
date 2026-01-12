@@ -44,8 +44,8 @@ absl::string_view insertStatusToString(InsertStatus status) {
     return "InsertAbortedByCache";
   case InsertStatus::InsertAbortedCacheCongested:
     return "InsertAbortedCacheCongested";
-  case InsertStatus::FilterAbortedBeforeInsertComplete:
-    return "FilterAbortedBeforeInsertComplete";
+  case InsertStatus::InsertAbortedResponseIncomplete:
+    return "InsertAbortedResponseIncomplete";
   case InsertStatus::HeaderUpdate:
     return "HeaderUpdate";
   case InsertStatus::NoInsertCacheHit:

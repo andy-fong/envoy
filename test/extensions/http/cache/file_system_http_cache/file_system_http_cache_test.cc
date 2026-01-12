@@ -101,6 +101,7 @@ protected:
   std::string cache_path_;
   NiceMock<Server::Configuration::MockFactoryContext> context_;
   std::shared_ptr<FileSystemHttpCache> cache_;
+  LogLevelSetter log_level_ = LogLevelSetter(spdlog::level::debug);
   HttpCacheFactory* http_cache_factory_;
 };
 

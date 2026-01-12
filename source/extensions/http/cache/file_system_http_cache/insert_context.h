@@ -21,21 +21,17 @@ class FileSystemHttpCache;
 
 class DontInsertContext : public InsertContext {
 public:
-  explicit DontInsertContext(Event::Dispatcher& dispatcher) : dispatcher_(dispatcher) {}
   void insertHeaders(const Http::ResponseHeaderMap&, const ResponseMetadata&,
                      InsertCallback insert_complete, bool) override {
-    dispatcher_.post([cb = std::move(insert_complete)]() mutable { cb(false); });
+    insert_complete(false);
   }
   void insertBody(const Buffer::Instance&, InsertCallback ready_for_next_chunk, bool) override {
-    dispatcher_.post([cb = std::move(ready_for_next_chunk)]() mutable { cb(false); });
+    ready_for_next_chunk(false);
   }
   void insertTrailers(const Http::ResponseTrailerMap&, InsertCallback insert_complete) override {
-    dispatcher_.post([cb = std::move(insert_complete)]() mutable { cb(false); });
+    insert_complete(false);
   }
   void onDestroy() override {};
-
-private:
-  Event::Dispatcher& dispatcher_;
 };
 
 class FileInsertContext : public InsertContext, public Logger::Loggable<Logger::Id::cache_filter> {
