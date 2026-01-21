@@ -1019,6 +1019,17 @@ private:
     return request_metadata_map_vector_.get();
   }
 
+  // Returns true if the decoder filter chain should not process any more frames.
+  // This includes cases where the chain was explicitly aborted (e.g., local reply)
+  // or where the downstream connection has been reset.
+  bool stopDecoderFilterChain() {
+    return state_.decoder_filter_chain_aborted_ || state_.saw_downstream_reset_;
+  }
+
+  bool stopEncoderFilterChain() { return state_.encoder_filter_chain_aborted_; }
+
+  bool isTerminalDecoderFilter(const ActiveStreamDecoderFilter& filter) const;
+
   FilterManagerCallbacks& filter_manager_callbacks_;
   Event::Dispatcher& dispatcher_;
   // This is unset if there is no downstream connection, e.g. for health check or
