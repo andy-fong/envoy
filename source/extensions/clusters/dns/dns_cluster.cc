@@ -40,19 +40,15 @@ DnsClusterFactory::createClusterWithConfig(
 
   if (dns_resolver_or_error.status().code() == absl::StatusCode::kUnknown) {
     std::cout << "andy: DnsClusterFactory: creating new resolver: " << key << std::endl;
-    unsigned int max_cache_ttl = 5; // 5 seconds is envoy's default refresh rate is nothing is set
+    // 5 seconds is envoy's default refresh rate when it is not set in config
+    unsigned int max_cache_ttl = PROTOBUF_GET_SECONDS_OR_DEFAULT(proto_config, dns_refresh_rate, 5);
     if (proto_config.respect_dns_ttl()) {
       max_cache_ttl = 3600; // this is the default for c-ares, it will still honor the ttl if it's smaller
-    } else if (proto_config.has_dns_refresh_rate()) {
-      auto refresh_rate = DurationUtil::durationToSeconds(proto_config.dns_refresh_rate());
-      if (refresh_rate > 0) {
-        std::cout << "andy: setting max_cache_ttl from dns_refresh_rate to " << max_cache_ttl << std::endl; 
-        max_cache_ttl = refresh_rate;
-      }
-      // TODO: check dns_failure_refresh_rate and if it's smaller, use that as the cap? The dns cache in c-ares
-      //       will cache nxdomain response as well, hopefully it will have a small TTL. 
-    }
-    dns_resolver_or_error = selectDnsResolver(proto_config.typed_dns_resolver_config(), context, max_cache_ttl);
+    } 
+    // TODO: check dns_failure_refresh_rate and if it's smaller, use that as the cap? The dns cache in c-ares
+    //       will cache nxdomain response as well, hopefully it will have a small TTL. 
+    std::cout << "andy: DnsClusterFactory: map setting max_cache_ttl to " << max_cache_ttl << std::endl;
+    dns_resolver_or_error = selectDnsResolver(cluster, context, max_cache_ttl);
     RETURN_IF_NOT_OK(dns_resolver_or_error.status());
     resolver_map_.emplace(key, *dns_resolver_or_error);
     std::cout << "andy: DnsClusterFactory: map size after emplace: " << resolver_map_.size() << std::endl;
@@ -101,25 +97,20 @@ public:
     }
 
     if (dns_resolver_or_error.status().code() == absl::StatusCode::kUnknown) {
-        std::cout << "andy: LegacyDnsClusterFactory: creating new resolver: " << key << std::endl;
-    unsigned int max_cache_ttl = 5; // 5 seconds is envoy's default refresh rate is nothing is set
-    if (typed_config.respect_dns_ttl()) {
-      max_cache_ttl = 3600; // this is the default for c-ares, it will still honor the ttl if it's smaller
-    } else if (typed_config.has_dns_refresh_rate()) {
-      auto refresh_rate = DurationUtil::durationToSeconds(typed_config.dns_refresh_rate());
-      if (refresh_rate > 0) {
-        std::cout << "andy: setting max_cache_ttl from dns_refresh_rate to " << max_cache_ttl << std::endl; 
-        max_cache_ttl = refresh_rate;
-      }
+      std::cout << "andy: LegacyDnsClusterFactory: creating new resolver: " << key << std::endl;
+      // 5 seconds is envoy's default refresh rate when it is not set in config
+      unsigned int max_cache_ttl = PROTOBUF_GET_SECONDS_OR_DEFAULT(typed_config, dns_refresh_rate, 5);
+      if (typed_config.respect_dns_ttl()) {
+        max_cache_ttl = 3600; // this is the default for c-ares, it will still honor the ttl if it's smaller
+      } 
       // TODO: check dns_failure_refresh_rate and if it's smaller, use that as the cap? The dns cache in c-ares
       //       will cache nxdomain response as well, hopefully it will have a small TTL. 
+      std::cout << "andy: LegacyDnsClusterFactory: map setting max_cache_ttl to " << max_cache_ttl << std::endl;
+      dns_resolver_or_error = selectDnsResolver(cluster, context, max_cache_ttl);
+      RETURN_IF_NOT_OK(dns_resolver_or_error.status());
+      resolver_map_.emplace(key, *dns_resolver_or_error);
+      std::cout << "andy: LegacyDnsClusterFactory: map size after emplace: " << resolver_map_.size() << std::endl;
     }
-        dns_resolver_or_error = selectDnsResolver(cluster, context, max_cache_ttl);
-        RETURN_IF_NOT_OK(dns_resolver_or_error.status());
-        resolver_map_.emplace(key, *dns_resolver_or_error);
-        std::cout << "andy: LegacyDnsClusterFactory: map size after emplace: " << resolver_map_.size() << std::endl;
-    }
-
 
     typed_config.set_all_addresses_in_single_endpoint(set_all_addresses_in_single_endpoint_);
 
