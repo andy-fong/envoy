@@ -106,7 +106,7 @@ absl::StatusOr<Network::DnsResolverSharedPtr> DnsCacheImpl::selectDnsResolver(
         &Network::createDnsResolverFactoryFromProto(config, typed_dns_resolver_config);
   }
   return dns_resolver_factory->createDnsResolver(main_thread_dispatcher, context.api(),
-                                                 typed_dns_resolver_config);
+                                                 typed_dns_resolver_config, 0);
 }
 
 DnsCacheStats DnsCacheImpl::generateDnsCacheStats(Stats::Scope& scope) {

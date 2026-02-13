@@ -654,7 +654,7 @@ RedisClusterFactory::createClusterWithConfig(
     return absl::InvalidArgumentError("Redis cluster can only created with redis cluster type.");
   }
   auto resolver =
-      THROW_OR_RETURN_VALUE(selectDnsResolver(cluster, context), Network::DnsResolverSharedPtr);
+      THROW_OR_RETURN_VALUE(selectDnsResolver(cluster, context, 0), Network::DnsResolverSharedPtr);
   // TODO(hyang): This is needed to migrate existing cluster, disallow using other lb_policy
   // in the future
   absl::Status creation_status = absl::OkStatus();

@@ -185,7 +185,7 @@ Network::DnsResolverSharedPtr ValidationInstance::dnsResolver() {
   Network::DnsResolverFactory& dns_resolver_factory =
       Network::createDefaultDnsResolverFactory(typed_dns_resolver_config);
   return THROW_OR_RETURN_VALUE(
-      dns_resolver_factory.createDnsResolver(dispatcher(), api(), typed_dns_resolver_config),
+      dns_resolver_factory.createDnsResolver(dispatcher(), api(), typed_dns_resolver_config, 0),
       Network::DnsResolverSharedPtr);
 }
 

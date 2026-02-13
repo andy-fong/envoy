@@ -26,7 +26,7 @@ public:
       : timeout_(timeout), dispatcher_(dispatcher), callback_(callback),
         max_pending_lookups_(max_pending_lookups),
         resolver_(THROW_OR_RETURN_VALUE(
-            dns_resolver_factory.createDnsResolver(dispatcher, api, typed_dns_resolver_config),
+            dns_resolver_factory.createDnsResolver(dispatcher, api, typed_dns_resolver_config, 0),
             Network::DnsResolverSharedPtr)) {}
   /**
    * @brief entry point to resolve the name in a DnsQueryRecord

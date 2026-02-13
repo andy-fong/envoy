@@ -21,5 +21,6 @@ int main(int argc, char** argv) {
   }
   return EXIT_SUCCESS;
 #endif
+  std::cout << "andy: starting envoy" << std::endl;
   return Envoy::MainCommon::main(argc, argv);
 }

@@ -52,7 +52,8 @@ public:
   DnsResolverImpl(
       const envoy::extensions::network::dns_resolver::cares::v3::CaresDnsResolverConfig& config,
       Event::Dispatcher& dispatcher, absl::optional<std::string> resolvers_csv,
-      Stats::Scope& root_scope);
+      Stats::Scope& root_scope,
+      unsigned int max_cache_ttl);
   ~DnsResolverImpl() override;
 
   static CaresDnsResolverStats generateCaresDnsResolverStats(Stats::Scope& scope);
@@ -211,6 +212,7 @@ private:
   const bool filter_unroutable_families_;
   Stats::ScopeSharedPtr scope_;
   CaresDnsResolverStats stats_;
+  unsigned int max_cache_ttl_ {0};
 };
 
 DECLARE_FACTORY(CaresDnsResolverFactory);

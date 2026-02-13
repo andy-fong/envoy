@@ -81,13 +81,15 @@ ClusterFactoryImplBase::create(const envoy::config::cluster::v3::Cluster& cluste
 
 absl::StatusOr<Network::DnsResolverSharedPtr>
 ClusterFactoryImplBase::selectDnsResolver(const envoy::config::cluster::v3::Cluster& cluster,
-                                          ClusterFactoryContext& context) {
+                                          ClusterFactoryContext& context, unsigned int max_cache_ttl) {
   // We make this a shared pointer to deal with the distinct ownership
   // scenarios that can exist: in one case, we pass in the "default"
   // DNS resolver that is owned by the Server::Instance. In the case
   // where 'dns_resolvers' is specified, we have per-cluster DNS
   // resolvers that are created here but ownership resides with
   // StrictDnsClusterImpl/LogicalDnsCluster.
+
+  std::cout << "andy: selectDnsResolver cluster " << cluster.name() << std::endl;
   if ((cluster.has_typed_dns_resolver_config() &&
        !(cluster.typed_dns_resolver_config().typed_config().type_url().empty())) ||
       (cluster.has_dns_resolution_config() &&
@@ -98,23 +100,28 @@ ClusterFactoryImplBase::selectDnsResolver(const envoy::config::cluster::v3::Clus
     Network::DnsResolverFactory& dns_resolver_factory =
         Network::createDnsResolverFactoryFromProto(cluster, typed_dns_resolver_config);
     auto& server_context = context.serverFactoryContext();
+    std::cout << "andy: cluster selectDnsResolver calling createDnsResolver()" << std::endl;
     return dns_resolver_factory.createDnsResolver(server_context.mainThreadDispatcher(),
-                                                  server_context.api(), typed_dns_resolver_config);
+                                                  server_context.api(), typed_dns_resolver_config, max_cache_ttl);
   }
 
+  std::cout << "andy: cluster using default resolver" << std::endl;
   return context.dnsResolver();
 }
 
 absl::StatusOr<Network::DnsResolverSharedPtr> ClusterFactoryImplBase::selectDnsResolver(
     const envoy::config::core::v3::TypedExtensionConfig& typed_dns_resolver_config,
-    ClusterFactoryContext& context) {
+    ClusterFactoryContext& context, unsigned int max_cache_ttl) {
+  std::cout << "andy: selectDnsResolver config " << typed_dns_resolver_config.name() << std::endl;
   if (typed_dns_resolver_config.has_typed_config()) {
     Network::DnsResolverFactory& dns_resolver_factory =
         Network::createDnsResolverFactoryFromTypedConfig(typed_dns_resolver_config);
     auto& server_context = context.serverFactoryContext();
+    std::cout << "andy: config selectDnsResolver calling createDnsResolver()" << std::endl;
     return dns_resolver_factory.createDnsResolver(server_context.mainThreadDispatcher(),
-                                                  server_context.api(), typed_dns_resolver_config);
+                                                  server_context.api(), typed_dns_resolver_config, max_cache_ttl);
   }
+  std::cout << "andy: config using default resolver" << std::endl;
   return context.dnsResolver();
 }
 

@@ -129,7 +129,7 @@ public:
 
   absl::StatusOr<DnsResolverSharedPtr>
   createDnsResolver(Event::Dispatcher& dispatcher, Api::Api& api,
-                    const envoy::config::core::v3::TypedExtensionConfig& typed_getaddrinfo_config)
+                    const envoy::config::core::v3::TypedExtensionConfig& typed_getaddrinfo_config, unsigned int)
       const override {
     envoy::extensions::network::dns_resolver::getaddrinfo::v3::GetAddrInfoDnsResolverConfig config;
     RETURN_IF_NOT_OK(Envoy::MessageUtil::unpackTo(typed_getaddrinfo_config.typed_config(), config));

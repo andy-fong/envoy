@@ -26,9 +26,37 @@ DnsClusterFactory::createClusterWithConfig(
     const envoy::config::cluster::v3::Cluster& cluster,
     const envoy::extensions::clusters::dns::v3::DnsCluster& proto_config,
     Upstream::ClusterFactoryContext& context) {
-  auto dns_resolver_or_error = selectDnsResolver(proto_config.typed_dns_resolver_config(), context);
+  absl::StatusOr<Network::DnsResolverSharedPtr> dns_resolver_or_error;
+  const auto key = MessageUtil::hash(proto_config);
+  std::cout << "andy: DnsClusterFactory: looking up resolver: " << key << std::endl;
+  const auto it = resolver_map_.find(key);
+  if (it != resolver_map_.end()) {
+    auto resolver = it->second.lock();
+    if (resolver) {
+      std::cout << "andy: DnsClusterFactory: found existing resolvers: " << key << std::endl;
+      dns_resolver_or_error = resolver; 
+    }
+  }
 
-  RETURN_IF_NOT_OK(dns_resolver_or_error.status());
+  if (dns_resolver_or_error.status().code() == absl::StatusCode::kUnknown) {
+    std::cout << "andy: DnsClusterFactory: creating new resolver: " << key << std::endl;
+    unsigned int max_cache_ttl = 5; // 5 seconds is envoy's default refresh rate is nothing is set
+    if (proto_config.respect_dns_ttl()) {
+      max_cache_ttl = 3600; // this is the default for c-ares, it will still honor the ttl if it's smaller
+    } else if (proto_config.has_dns_refresh_rate()) {
+      auto refresh_rate = DurationUtil::durationToSeconds(proto_config.dns_refresh_rate());
+      if (refresh_rate > 0) {
+        std::cout << "andy: setting max_cache_ttl from dns_refresh_rate to " << max_cache_ttl << std::endl; 
+        max_cache_ttl = refresh_rate;
+      }
+      // TODO: check dns_failure_refresh_rate and if it's smaller, use that as the cap? The dns cache in c-ares
+      //       will cache nxdomain response as well, hopefully it will have a small TTL. 
+    }
+    dns_resolver_or_error = selectDnsResolver(proto_config.typed_dns_resolver_config(), context, max_cache_ttl);
+    RETURN_IF_NOT_OK(dns_resolver_or_error.status());
+    resolver_map_.emplace(key, *dns_resolver_or_error);
+    std::cout << "andy: DnsClusterFactory: map size after emplace: " << resolver_map_.size() << std::endl;
+  }
 
   absl::StatusOr<std::unique_ptr<ClusterImplBase>> cluster_or_error;
 
@@ -57,12 +85,41 @@ public:
   virtual absl::StatusOr<std::pair<ClusterImplBaseSharedPtr, ThreadAwareLoadBalancerPtr>>
   createClusterImpl(const envoy::config::cluster::v3::Cluster& cluster,
                     ClusterFactoryContext& context) override {
-    absl::StatusOr<Network::DnsResolverSharedPtr> dns_resolver_or_error =
-        selectDnsResolver(cluster, context);
-    RETURN_IF_NOT_OK(dns_resolver_or_error.status());
-
     envoy::extensions::clusters::dns::v3::DnsCluster typed_config;
     createDnsClusterFromLegacyFields(cluster, typed_config);
+
+    absl::StatusOr<Network::DnsResolverSharedPtr> dns_resolver_or_error;
+    const auto key = MessageUtil::hash(typed_config);
+    std::cout << "andy: LegacyDnsClusterFactory: looking up resolver: " << key << std::endl;
+    const auto it = resolver_map_.find(key);
+    if (it != resolver_map_.end()) {
+      auto resolver = it->second.lock();
+      if (resolver) {
+        std::cout << "andy: LegacyDnsClusterFactory: found existing resolvers: " << key << std::endl;
+        dns_resolver_or_error = resolver; 
+      }
+    }
+
+    if (dns_resolver_or_error.status().code() == absl::StatusCode::kUnknown) {
+        std::cout << "andy: LegacyDnsClusterFactory: creating new resolver: " << key << std::endl;
+    unsigned int max_cache_ttl = 5; // 5 seconds is envoy's default refresh rate is nothing is set
+    if (typed_config.respect_dns_ttl()) {
+      max_cache_ttl = 3600; // this is the default for c-ares, it will still honor the ttl if it's smaller
+    } else if (typed_config.has_dns_refresh_rate()) {
+      auto refresh_rate = DurationUtil::durationToSeconds(typed_config.dns_refresh_rate());
+      if (refresh_rate > 0) {
+        std::cout << "andy: setting max_cache_ttl from dns_refresh_rate to " << max_cache_ttl << std::endl; 
+        max_cache_ttl = refresh_rate;
+      }
+      // TODO: check dns_failure_refresh_rate and if it's smaller, use that as the cap? The dns cache in c-ares
+      //       will cache nxdomain response as well, hopefully it will have a small TTL. 
+    }
+        dns_resolver_or_error = selectDnsResolver(cluster, context, max_cache_ttl);
+        RETURN_IF_NOT_OK(dns_resolver_or_error.status());
+        resolver_map_.emplace(key, *dns_resolver_or_error);
+        std::cout << "andy: LegacyDnsClusterFactory: map size after emplace: " << resolver_map_.size() << std::endl;
+    }
+
 
     typed_config.set_all_addresses_in_single_endpoint(set_all_addresses_in_single_endpoint_);
 
@@ -85,6 +142,7 @@ public:
 
 private:
   bool set_all_addresses_in_single_endpoint_{false};
+  absl::flat_hash_map<std::size_t, std::weak_ptr<Network::DnsResolver>> resolver_map_;
 };
 
 /**

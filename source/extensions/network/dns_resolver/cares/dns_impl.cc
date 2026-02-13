@@ -23,6 +23,7 @@
 #include "source/common/protobuf/utility.h"
 #include "source/common/runtime/runtime_features.h"
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/strings/str_join.h"
 #include "ares.h"
 
@@ -42,7 +43,7 @@ constexpr uint32_t DEFAULT_QUERY_TRIES = 4;
 DnsResolverImpl::DnsResolverImpl(
     const envoy::extensions::network::dns_resolver::cares::v3::CaresDnsResolverConfig& config,
     Event::Dispatcher& dispatcher, absl::optional<std::string> resolvers_csv,
-    Stats::Scope& root_scope)
+    Stats::Scope& root_scope, unsigned int max_cache_ttl)
     : dispatcher_(dispatcher),
       timer_(dispatcher.createTimer([this] { onEventCallback(ARES_SOCKET_BAD, 0); })),
       dns_resolver_options_(config.dns_resolver_options()),
@@ -63,7 +64,8 @@ DnsResolverImpl::DnsResolverImpl(
               : std::chrono::milliseconds::zero()),
       reinit_channel_on_timeout_(config.reinit_channel_on_timeout()), resolvers_csv_(resolvers_csv),
       filter_unroutable_families_(config.filter_unroutable_families()),
-      scope_(root_scope.createScope("dns.cares.")), stats_(generateCaresDnsResolverStats(*scope_)) {
+      scope_(root_scope.createScope("dns.cares.")), stats_(generateCaresDnsResolverStats(*scope_)),
+      max_cache_ttl_(max_cache_ttl) {
   AresOptions options = defaultAresOptions();
   initializeChannel(&options.options_, options.optmask_);
 
@@ -151,9 +153,8 @@ DnsResolverImpl::AresOptions DnsResolverImpl::defaultAresOptions() {
     options.options_.ednspsz = edns0_max_payload_size_;
   }
 
-  // Disable query cache by default.
   options.optmask_ |= ARES_OPT_QUERY_CACHE;
-  options.options_.qcache_max_ttl = 0;
+  options.options_.qcache_max_ttl = max_cache_ttl_;
 
   return options;
 }
@@ -658,7 +659,8 @@ public:
 
   absl::StatusOr<DnsResolverSharedPtr>
   createDnsResolver(Event::Dispatcher& dispatcher, Api::Api& api,
-                    const envoy::config::core::v3::TypedExtensionConfig& typed_dns_resolver_config)
+                    const envoy::config::core::v3::TypedExtensionConfig& typed_dns_resolver_config,
+                    unsigned int max_cache_ttl)
       const override {
     envoy::extensions::network::dns_resolver::cares::v3::CaresDnsResolverConfig cares;
     std::vector<Network::Address::InstanceConstSharedPtr> resolvers;
@@ -667,6 +669,19 @@ public:
     // Only c-ares DNS factory will call into this function.
     // Directly unpack the typed config to a c-ares object.
     RETURN_IF_NOT_OK(Envoy::MessageUtil::unpackTo(typed_dns_resolver_config.typed_config(), cares));
+/*
+    const auto key = MessageUtil::hash(cares);
+    ENVOY_LOG(trace, "andy: looking up resolver: {}", key);
+    const auto it = resolver_map_.find(key);
+    if (it != resolver_map_.end()) {
+      auto resolver = it->second.lock();
+      if (resolver) {
+        ENVOY_LOG(trace, "andy: found existing resolvers: {}", key);
+        return resolver;
+      }
+    }
+*/
+
     if (!cares.resolvers().empty()) {
       const auto& resolver_addrs = cares.resolvers();
       resolvers.reserve(resolver_addrs.size());
@@ -678,8 +693,17 @@ public:
     }
     auto csv_or_error = DnsResolverImpl::maybeBuildResolversCsv(resolvers);
     RETURN_IF_NOT_OK(csv_or_error.status());
+#if 1
     return std::make_shared<Network::DnsResolverImpl>(cares, dispatcher, csv_or_error.value(),
+                                                      api.rootScope(), max_cache_ttl);
+#else
+    auto resolver = std::make_shared<Network::DnsResolverImpl>(cares, dispatcher, csv_or_error.value(),
                                                       api.rootScope());
+    ENVOY_LOG(trace, "andy: adding new resolver to map: {}", key);
+    resolver_map_.emplace(key, resolver);
+    ENVOY_LOG(trace, "andy: map size after adding: {}", resolver_map_.size());
+    return resolver;
+#endif
   }
 
   void initialize() override {
@@ -704,6 +728,7 @@ public:
 private:
   bool ares_library_initialized_ ABSL_GUARDED_BY(mutex_){false};
   absl::Mutex mutex_;
+//  mutable absl::flat_hash_map<std::size_t, std::weak_ptr<Network::DnsResolver>> resolver_map_;
 };
 
 // Register the CaresDnsResolverFactory

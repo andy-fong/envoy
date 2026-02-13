@@ -4,4 +4,4 @@
 ulimit -c 0
 
 # Memory limits to avoid crashing the whole system if clangd goes wild.
-exec prlimit --as=7000000000:8000000000 --rss=7000000000:8000000000 clangd "$@"
+exec prlimit --as=14000000000:16000000000 --rss=14000000000:16000000000 clangd "$@"

@@ -173,7 +173,7 @@ Word resolve_dns(Word dns_address_ptr, Word dns_address_size, Word token_ptr) {
     context->envoyWasm()->dnsResolver() =
         THROW_OR_RETURN_VALUE(dns_resolver_factory.createDnsResolver(
                                   context->envoyWasm()->dispatcher(), context->envoyWasm()->api(),
-                                  typed_dns_resolver_config),
+                                  typed_dns_resolver_config, 0),
                               Network::DnsResolverSharedPtr);
   }
   context->envoyWasm()->dnsResolver()->resolve(std::string(address.value()),

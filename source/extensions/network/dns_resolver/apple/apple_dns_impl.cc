@@ -467,7 +467,7 @@ public:
 
   absl::StatusOr<DnsResolverSharedPtr>
   createDnsResolver(Event::Dispatcher& dispatcher, Api::Api& api,
-                    const envoy::config::core::v3::TypedExtensionConfig& typed_dns_resolver_config)
+                    const envoy::config::core::v3::TypedExtensionConfig& typed_dns_resolver_config, unsignded int)
       const override {
     ASSERT(dispatcher.isThreadSafe());
     envoy::extensions::network::dns_resolver::apple::v3::AppleDnsResolverConfig apple;

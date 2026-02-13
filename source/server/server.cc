@@ -1202,12 +1202,13 @@ ProtobufTypes::MessagePtr InstanceBase::dumpBootstrapConfig() {
 }
 
 Network::DnsResolverSharedPtr InstanceBase::getOrCreateDnsResolver() {
+  std::cout << "andy: getOrCreateDnsResolver" << std::endl;
   if (!dns_resolver_) {
     envoy::config::core::v3::TypedExtensionConfig typed_dns_resolver_config;
     Network::DnsResolverFactory& dns_resolver_factory =
         Network::createDnsResolverFactoryFromProto(bootstrap_, typed_dns_resolver_config);
     dns_resolver_ = THROW_OR_RETURN_VALUE(
-        dns_resolver_factory.createDnsResolver(dispatcher(), api(), typed_dns_resolver_config),
+        dns_resolver_factory.createDnsResolver(dispatcher(), api(), typed_dns_resolver_config, 0),
         Network::DnsResolverSharedPtr);
   }
   return dns_resolver_;

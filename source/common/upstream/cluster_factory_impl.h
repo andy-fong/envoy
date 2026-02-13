@@ -109,11 +109,11 @@ public:
    */
   absl::StatusOr<Network::DnsResolverSharedPtr>
   selectDnsResolver(const envoy::config::cluster::v3::Cluster& cluster,
-                    ClusterFactoryContext& context);
+                    ClusterFactoryContext& context, unsigned int max_cache_ttl);
 
   absl::StatusOr<Network::DnsResolverSharedPtr>
   selectDnsResolver(const envoy::config::core::v3::TypedExtensionConfig& typed_dns_resolver_config,
-                    ClusterFactoryContext& context);
+                    ClusterFactoryContext& context, unsigned int max_cache_ttl);
 
   // Upstream::ClusterFactory
   absl::StatusOr<std::pair<ClusterSharedPtr, ThreadAwareLoadBalancerPtr>>
