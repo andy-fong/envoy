@@ -2,7 +2,7 @@ load("@aspect_bazel_lib//lib:repositories.bzl", "aspect_bazel_lib_dependencies")
 load("@bazel_features//:deps.bzl", "bazel_features_deps")
 load("@com_github_rules_proto_grpc//:repositories.bzl", "rules_proto_grpc_toolchains")
 load("@emsdk//:deps.bzl", emsdk_deps = "deps")
-load("@proxy_wasm_cpp_host//bazel/cargo/wasmtime:crates.bzl", "wasmtime_fetch_remote_crates")
+load("@proxy_wasm_cpp_host//bazel/cargo/wasmtime/remote:crates.bzl", "crate_repositories")
 load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
 load("//bazel/external/cargo:crates.bzl", "raze_fetch_remote_crates")
 
@@ -20,7 +20,7 @@ def envoy_dependencies_extra(
     bazel_features_deps()
     emsdk_deps()
     raze_fetch_remote_crates()
-    wasmtime_fetch_remote_crates()
+    crate_repositories()
     rules_proto_grpc_toolchains()
     py_repositories()
 
