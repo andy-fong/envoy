@@ -335,7 +335,7 @@ def envoy_dependencies(skip_targets = []):
     _v8()
     _com_googlesource_chromium_base_trace_event_common()
     _com_github_google_quiche()
-    _com_googlesource_googleurl()
+    _googleurl()
     _io_hyperscan()
     _io_vectorscan()
     _io_opentracing_cpp()
@@ -1183,9 +1183,9 @@ def _com_github_google_quiche():
         actual = "@com_github_google_quiche//:http2_hpack_decoder_hpack_decoder_lib",
     )
 
-def _com_googlesource_googleurl():
+def _googleurl():
     external_http_archive(
-        name = "com_googlesource_googleurl",
+        name = "googleurl",
         patches = ["@envoy//bazel/external:googleurl.patch"],
         patch_args = ["-p1"],
     )
