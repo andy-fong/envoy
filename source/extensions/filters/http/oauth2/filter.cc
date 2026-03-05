@@ -498,18 +498,25 @@ Http::FilterHeadersStatus OAuth2Filter::signOutUser(const Http::RequestHeaderMap
       {{Http::Headers::get().Status, std::to_string(enumToInt(Http::Code::Found))}})};
 
   const std::string new_path = absl::StrCat(headers.getSchemeValue(), "://", host_, "/");
-  response_headers->addReferenceKey(
-      Http::Headers::get().SetCookie,
-      fmt::format(CookieDeleteFormatString, config_->cookieNames().oauth_hmac_));
-  response_headers->addReferenceKey(
-      Http::Headers::get().SetCookie,
-      fmt::format(CookieDeleteFormatString, config_->cookieNames().bearer_token_));
-  response_headers->addReferenceKey(
-      Http::Headers::get().SetCookie,
-      fmt::format(CookieDeleteFormatString, config_->cookieNames().id_token_));
-  response_headers->addReferenceKey(
-      Http::Headers::get().SetCookie,
-      fmt::format(CookieDeleteFormatString, config_->cookieNames().refresh_token_));
+  const std::vector<absl::string_view> cookie_names{
+      config_->cookieNames().oauth_hmac_,
+      config_->cookieNames().bearer_token_,
+      config_->cookieNames().id_token_,
+      config_->cookieNames().refresh_token_,
+  };
+
+  for (const auto& cookie_name : cookie_names) {
+    // Cookie names prefixed with "__Secure-" or "__Host-" are special. They MUST be set with the
+    // Secure attribute so that the browser handles their deletion properly.
+    const bool add_secure_attr =
+        cookie_name.starts_with("__Secure-") || cookie_name.starts_with("__Host-");
+    const absl::string_view maybe_secure_attr = add_secure_attr ? "; Secure" : "";
+
+    response_headers->addReferenceKey(
+        Http::Headers::get().SetCookie,
+        absl::StrCat(fmt::format(CookieDeleteFormatString, cookie_name), maybe_secure_attr));
+  }
+
   response_headers->setLocation(new_path);
   decoder_callbacks_->encodeHeaders(std::move(response_headers), true, SIGN_OUT);
 
