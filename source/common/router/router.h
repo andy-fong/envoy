@@ -567,6 +567,7 @@ private:
   Http::Context& httpContext() { return config_->http_context_; }
   bool checkDropOverload(Upstream::ThreadLocalCluster& cluster,
                          std::function<void(Http::ResponseHeaderMap&)>& modify_headers);
+  bool isEarlyConnectData();
 
   RetryStatePtr retry_state_;
   const FilterConfigSharedPtr config_;
