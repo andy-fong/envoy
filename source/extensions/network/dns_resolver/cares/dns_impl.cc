@@ -21,6 +21,7 @@
 #include "source/common/network/utility.h"
 #include "source/common/runtime/runtime_features.h"
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/strings/str_join.h"
 #include "ares.h"
 
@@ -34,6 +35,7 @@ namespace {
 // to their original values: 5 second timeout and 4 retry attempts.
 // Ref: https://github.com/envoyproxy/envoy/issues/35117
 constexpr uint32_t DEFAULT_QUERY_TIMEOUT_SECONDS = 5;
+constexpr uint32_t DEFAULT_QCACHE_MAX_TTL = 0;
 constexpr uint32_t DEFAULT_QUERY_TRIES = 4;
 } // namespace
 
@@ -53,7 +55,8 @@ DnsResolverImpl::DnsResolverImpl(
           PROTOBUF_GET_WRAPPED_OR_DEFAULT(config, query_tries, DEFAULT_QUERY_TRIES))),
       rotate_nameservers_(config.rotate_nameservers()), resolvers_csv_(resolvers_csv),
       filter_unroutable_families_(config.filter_unroutable_families()),
-      scope_(root_scope.createScope("dns.cares.")), stats_(generateCaresDnsResolverStats(*scope_)) {
+      scope_(root_scope.createScope("dns.cares.")), stats_(generateCaresDnsResolverStats(*scope_)),
+      max_cache_ttl_(static_cast<uint32_t>(PROTOBUF_GET_WRAPPED_OR_DEFAULT(config, qcache_max_ttl, DEFAULT_QCACHE_MAX_TTL))) {
   AresOptions options = defaultAresOptions();
   initializeChannel(&options.options_, options.optmask_);
 }
@@ -126,9 +129,11 @@ DnsResolverImpl::AresOptions DnsResolverImpl::defaultAresOptions() {
     options.optmask_ |= ARES_OPT_NOROTATE;
   }
 
-  // Disable query cache by default.
   options.optmask_ |= ARES_OPT_QUERY_CACHE;
-  options.options_.qcache_max_ttl = 0;
+  if (max_cache_ttl_) {
+    ENVOY_LOG(debug, "c-ares query cached enabled: max ttl {}", max_cache_ttl_);
+  }
+  options.options_.qcache_max_ttl = max_cache_ttl_;
 
   return options;
 }
@@ -624,6 +629,19 @@ public:
     // Only c-ares DNS factory will call into this function.
     // Directly unpack the typed config to a c-ares object.
     RETURN_IF_NOT_OK(Envoy::MessageUtil::unpackTo(typed_dns_resolver_config.typed_config(), cares));
+    std::size_t key = 0;
+    if (Runtime::runtimeFeatureEnabled("envoy.restart_features.shared_cares_dns_resolver")) {
+      key = MessageUtil::hash(cares);
+      const auto it = resolver_map_.find(key);
+      if (it != resolver_map_.end()) {
+        auto resolver = it->second.lock();
+        if (resolver) {
+          ENVOY_LOG(trace, "found existing resolvers: {}", key);
+          return resolver;
+        }
+      }
+    }
+
     if (!cares.resolvers().empty()) {
       const auto& resolver_addrs = cares.resolvers();
       resolvers.reserve(resolver_addrs.size());
@@ -635,8 +653,22 @@ public:
     }
     auto csv_or_error = DnsResolverImpl::maybeBuildResolversCsv(resolvers);
     RETURN_IF_NOT_OK(csv_or_error.status());
-    return std::make_shared<Network::DnsResolverImpl>(cares, dispatcher, csv_or_error.value(),
+
+    auto resolver = std::make_shared<Network::DnsResolverImpl>(cares, dispatcher, csv_or_error.value(),
                                                       api.rootScope());
+    if (Runtime::runtimeFeatureEnabled("envoy.restart_features.shared_cares_dns_resolver")) {
+      // clean up any nil resolver in the map so it doesn't keep growing
+      auto original_size = resolver_map_.size();
+      absl::erase_if(resolver_map_, [](const std::pair<const std::size_t, std::weak_ptr<Network::DnsResolver>>& entry) {
+        return entry.second.expired();
+      });
+      if (resolver_map_.size() < original_size) {
+        ENVOY_LOG(trace, "cleaned up {} entries in resolver_map_", original_size - resolver_map_.size());
+      }
+      resolver_map_.emplace(key, resolver);
+      ENVOY_LOG(trace, "resolver_map_ size after adding: {}", resolver_map_.size());
+    }
+    return resolver;
   }
 
   void initialize() override {
@@ -661,6 +693,7 @@ public:
 private:
   bool ares_library_initialized_ ABSL_GUARDED_BY(mutex_){false};
   absl::Mutex mutex_;
+  mutable absl::flat_hash_map<std::size_t, std::weak_ptr<Network::DnsResolver>> resolver_map_;
 };
 
 // Register the CaresDnsResolverFactory
