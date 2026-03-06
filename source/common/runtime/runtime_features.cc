@@ -57,7 +57,6 @@ RUNTIME_GUARD(envoy_reloadable_features_http2_discard_host_header);
 RUNTIME_GUARD(envoy_reloadable_features_http2_include_cookies_in_limits);
 RUNTIME_GUARD(envoy_reloadable_features_http2_propagate_reset_events);
 RUNTIME_GUARD(envoy_reloadable_features_http2_track_size_of_dropped_host_header);
-RUNTIME_GUARD(envoy_reloadable_features_http2_use_oghttp2);
 RUNTIME_GUARD(envoy_reloadable_features_http3_remove_empty_cookie);
 RUNTIME_GUARD(envoy_reloadable_features_http_pause_generic_upgrade_request_body);
 // Delay deprecation and decommission until UHV is enabled.
@@ -143,6 +142,7 @@ ABSL_FLAG(bool, envoy_reloadable_features_always_use_v6, true, "");
 #else
 FALSE_RUNTIME_GUARD(envoy_reloadable_features_always_use_v6);
 #endif
+FALSE_RUNTIME_GUARD(envoy_reloadable_features_http2_use_oghttp2);
 // TODO(vikaschoudhary16) flip this to true only after all the
 // TcpProxy::Filter::HttpStreamDecoderFilterCallbacks are implemented or commented as unnecessary
 FALSE_RUNTIME_GUARD(envoy_restart_features_upstream_http_filters_with_tcp_proxy);
