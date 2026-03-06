@@ -2275,6 +2275,7 @@ ServerConnectionImpl::ServerConnectionImpl(
   Http2Options h2_options(http2_options, max_request_headers_kb);
 
   auto direct_visitor = std::make_unique<Http2Visitor>(this);
+  ENVOY_LOG(trace, "Are we using oghttp2? {}", use_oghttp2_library_);
 
 #ifdef ENVOY_NGHTTP2
   if (use_oghttp2_library_) {
