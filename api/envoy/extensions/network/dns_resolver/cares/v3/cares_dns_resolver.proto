@@ -113,4 +113,14 @@ message CaresDnsResolverConfig {
   //
   // Default is false.
   bool reinit_channel_on_timeout = 11;
+
+  // The maximum duration (in seconds) for which DNS responses will be cached by c-ares.
+  //
+  // If set to a non-zero value, the query cache is enabled and will respect the
+  // TTL provided in the DNS response, up to this maximum limit.
+  //
+  // .. note::
+  //   While the underlying c-ares library defaults to 1 hour, Envoy's default
+  //   for this field is 0, which disables the query cache entirely.
+  google.protobuf.UInt32Value qcache_max_ttl = 12 [(validate.rules).uint32 = {gte: 0}];
 }
