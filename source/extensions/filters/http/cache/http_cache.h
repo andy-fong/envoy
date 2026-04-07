@@ -277,13 +277,13 @@ public:
   // read access to a cache entry before its write is complete. In this case the
   // content-length value may be unset.
   virtual LookupContextPtr makeLookupContext(LookupRequest&& request,
-                                             Http::StreamFilterCallbacks& callbacks) PURE;
+                                             Http::StreamDecoderFilterCallbacks& callbacks) PURE;
 
   // Returns an InsertContextPtr to manage the state of a cache insertion.
   // Responses with a chunked transfer-encoding must be dechunked before
   // insertion.
   virtual InsertContextPtr makeInsertContext(LookupContextPtr&& lookup_context,
-                                             Http::StreamFilterCallbacks& callbacks) PURE;
+                                             Http::StreamEncoderFilterCallbacks& callbacks) PURE;
 
   // Precondition: lookup_context represents a prior cache lookup that required
   // validation.
