@@ -168,7 +168,7 @@ private:
 } // namespace
 
 LookupContextPtr SimpleHttpCache::makeLookupContext(LookupRequest&& request,
-                                                    Http::StreamFilterCallbacks& callbacks) {
+                                                    Http::StreamDecoderFilterCallbacks& callbacks) {
   return std::make_unique<SimpleLookupContext>(callbacks.dispatcher(), *this, std::move(request));
 }
 
@@ -311,12 +311,10 @@ bool SimpleHttpCache::varyInsert(const Key& request_key,
 }
 
 InsertContextPtr SimpleHttpCache::makeInsertContext(LookupContextPtr&& lookup_context,
-                                                    Http::StreamFilterCallbacks&) {
+                                                    Http::StreamEncoderFilterCallbacks&) {
   ASSERT(lookup_context != nullptr);
-  auto ret = std::make_unique<SimpleInsertContext>(
-      dynamic_cast<SimpleLookupContext&>(*lookup_context), *this);
-  lookup_context->onDestroy();
-  return ret;
+  return std::make_unique<SimpleInsertContext>(dynamic_cast<SimpleLookupContext&>(*lookup_context),
+                                               *this);
 }
 
 constexpr absl::string_view Name = "envoy.extensions.http.cache.simple";
