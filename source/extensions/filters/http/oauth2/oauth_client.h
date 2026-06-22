@@ -35,6 +35,12 @@ public:
 
   virtual void setCallbacks(FilterCallbacks& callbacks) PURE;
 
+  /**
+   * Cancels any in-flight token request and detaches from the filter so late async completions
+   * cannot invoke filter callbacks or decoder callbacks after stream teardown.
+   */
+  virtual void cancel() PURE;
+
   // Http::AsyncClient::Callbacks
   void onSuccess(const Http::AsyncClient::Request&, Http::ResponseMessagePtr&& m) override PURE;
   void onFailure(const Http::AsyncClient::Request&,
@@ -47,11 +53,7 @@ public:
                    const std::chrono::seconds default_expires_in)
       : cm_(cm), uri_(uri), default_expires_in_(default_expires_in) {}
 
-  ~OAuth2ClientImpl() override {
-    if (in_flight_request_ != nullptr) {
-      in_flight_request_->cancel();
-    }
-  }
+  ~OAuth2ClientImpl() override { cancel(); }
 
   // OAuth2Client
   /**
@@ -65,6 +67,7 @@ public:
                                const std::string& secret, AuthType auth_type) override;
 
   void setCallbacks(FilterCallbacks& callbacks) override { parent_ = &callbacks; }
+  void cancel() override;
 
   // AsyncClient::Callbacks
   void onSuccess(const Http::AsyncClient::Request&, Http::ResponseMessagePtr&& m) override;
