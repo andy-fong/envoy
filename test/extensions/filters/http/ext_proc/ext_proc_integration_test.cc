@@ -9,6 +9,7 @@
 #include "envoy/network/address.h"
 #include "envoy/service/ext_proc/v3/external_processor.pb.h"
 
+#include "source/common/grpc/common.h"
 #include "source/extensions/filters/http/ext_proc/config.h"
 #include "source/extensions/filters/http/ext_proc/ext_proc.h"
 
@@ -51,6 +52,7 @@ using Extensions::HttpFilters::ExternalProcessing::HeaderProtosEqual;
 using Extensions::HttpFilters::ExternalProcessing::makeHeaderValue;
 using Extensions::HttpFilters::ExternalProcessing::SingleHeaderValueIs;
 
+using Http::HeaderValueOf;
 using Http::LowerCaseString;
 
 using namespace std::chrono_literals;
@@ -505,6 +507,37 @@ protected:
       (*cb)(*immediate);
     }
     processor_stream_->sendGrpcMessage(response);
+  }
+
+  // Packing two ProcessingResponses into one gRPC message.
+  // If @param immediate_response is true, the 1st ProcessingResponse is an immediate_response.
+  // Otherwise, the 1st ProcessingResponse is an empty request_trailers response.
+  // The 2nd ProcessingResponse is an empty response_trailers response.
+  void packTwoResponsesInOneMessage(FakeUpstream& grpc_upstream, bool immediate_response,
+                                    absl::optional<std::function<void(ImmediateResponse&)>> cb) {
+    ProcessingRequest request;
+    ASSERT_TRUE(grpc_upstream.waitForHttpConnection(*dispatcher_, processor_connection_));
+    ASSERT_TRUE(processor_connection_->waitForNewStream(*dispatcher_, processor_stream_));
+    ASSERT_TRUE(processor_stream_->waitForGrpcMessage(*dispatcher_, request));
+    processor_stream_->startGrpcStream();
+
+    ProcessingResponse response1;
+    if (immediate_response) {
+      auto* immediate = response1.mutable_immediate_response();
+      if (cb) {
+        (*cb)(*immediate);
+      }
+    } else {
+      response1.mutable_request_trailers();
+    }
+    auto serialized_response1 = Grpc::Common::serializeToGrpcFrame(response1);
+    Buffer::OwnedImpl combined_buffer;
+    combined_buffer.add(*serialized_response1);
+    ProcessingResponse response2;
+    response2.mutable_response_trailers();
+    auto serialized_response2 = Grpc::Common::serializeToGrpcFrame(response2);
+    combined_buffer.add(*serialized_response2);
+    processor_stream_->encodeData(combined_buffer, false);
   }
 
   // ext_proc server sends back a response to tell Envoy to stop the
@@ -4566,6 +4599,47 @@ TEST_P(ExtProcIntegrationTest, SidestreamPushbackDownstreamRuntimeDisable) {
   }
   handleUpstreamRequest();
 
+  verifyDownstreamResponse(*response, 200);
+}
+
+TEST_P(ExtProcIntegrationTest, PackImmediateResponseWithResponseTrailers) {
+  initializeConfig();
+  HttpIntegrationTest::initialize();
+  auto response = sendDownstreamRequest(absl::nullopt);
+
+  packTwoResponsesInOneMessage(*grpc_upstreams_[0], true, [](ImmediateResponse& immediate) {
+    immediate.mutable_status()->set_code(envoy::type::v3::StatusCode::Unauthorized);
+    immediate.set_body("{\"reason\": \"Not authorized\"}");
+    immediate.set_details("Failed because you are not authorized");
+    auto* hdr1 = immediate.mutable_headers()->add_set_headers();
+    hdr1->mutable_append()->set_value(false);
+    hdr1->mutable_header()->set_key("x-failure-reason");
+    hdr1->mutable_header()->set_raw_value("testing");
+  });
+
+  verifyDownstreamResponse(*response, 401);
+  EXPECT_THAT(response->headers(), HeaderValueOf("x-failure-reason", "testing"));
+  EXPECT_EQ("{\"reason\": \"Not authorized\"}", response->body());
+}
+
+TEST_P(ExtProcIntegrationTest, PackRequestTrailersWithResponseTrailersFailClose) {
+  proto_config_.set_failure_mode_allow(false);
+  initializeConfig();
+  HttpIntegrationTest::initialize();
+  auto response = sendDownstreamRequest(absl::nullopt);
+
+  packTwoResponsesInOneMessage(*grpc_upstreams_[0], false, absl::nullopt);
+  verifyDownstreamResponse(*response, 500);
+}
+
+TEST_P(ExtProcIntegrationTest, PackRequestTrailersWithResponseTrailersFailOpen) {
+  proto_config_.set_failure_mode_allow(true);
+  initializeConfig();
+  HttpIntegrationTest::initialize();
+  auto response = sendDownstreamRequest(absl::nullopt);
+
+  packTwoResponsesInOneMessage(*grpc_upstreams_[0], false, absl::nullopt);
+  handleUpstreamRequest();
   verifyDownstreamResponse(*response, 200);
 }
 
