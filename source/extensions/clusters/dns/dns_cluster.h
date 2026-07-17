@@ -48,7 +48,15 @@ protected:
                  ClusterFactoryContext& context, Network::DnsResolverSharedPtr dns_resolver,
                  absl::Status& creation_status);
 
-private:
+  // Hook for derived classes to observe the completion of one resolve target's DNS resolution
+  // attempt. `details` describes the outcome, either as reported by the resolver or as the error
+  // encountered while building hosts from the response. The default implementation does nothing.
+  // See on_demand_dns_cluster.h.
+  virtual void onResolveTargetComplete(absl::string_view) {}
+
+  // `protected` rather than `private` so that OnDemandDnsClusterImpl can drive the resolve
+  // targets. See on_demand_dns_cluster.h.
+protected:
   struct ResolveTarget {
     ResolveTarget(DnsClusterImpl& parent, Event::Dispatcher& dispatcher,
                   const std::string& dns_address, const uint32_t dns_port,

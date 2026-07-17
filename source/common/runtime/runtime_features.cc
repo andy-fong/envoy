@@ -244,6 +244,12 @@ FALSE_RUNTIME_GUARD(envoy_reloadable_features_remove_legacy_route_formatter);
 // take over the split ones, and will be used as a base for the
 // implementation of on-demand DNS.
 FALSE_RUNTIME_GUARD(envoy_reloadable_features_enable_new_dns_implementation);
+// Enables on-demand DNS resolution for DNS clusters that use cluster-provided load
+// balancing. When enabled, such clusters skip DNS resolution during warming and instead
+// resolve on first use. Clusters that do not use cluster-provided load balancing are
+// unaffected. This is evaluated when a cluster is created, so changing it at runtime affects
+// clusters created afterwards (for example on the next CDS update) and not existing clusters.
+FALSE_RUNTIME_GUARD(envoy_reloadable_features_dns_cluster_on_demand_resolution);
 // Force a local reply from upstream envoy for reverse connections.
 FALSE_RUNTIME_GUARD(envoy_reloadable_features_reverse_conn_force_local_reply);
 // RELEASE_ASSERT when upstream stream detects UAF of downstream response decoder instance.
