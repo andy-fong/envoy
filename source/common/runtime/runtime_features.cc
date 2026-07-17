@@ -210,6 +210,11 @@ RUNTIME_GUARD(envoy_reloadable_features_vhds_answered_alias_cache);
 RUNTIME_GUARD(envoy_reloadable_features_xds_failover_to_primary_enabled);
 RUNTIME_GUARD(envoy_reloadable_features_xds_legacy_delta_skip_subsequent_node);
 RUNTIME_GUARD(envoy_reloadable_features_zipkin_preserve_b3_single_header_format);
+
+// DnsFilter created resolver on the worker thread which could lead to race when sharing resolvers
+// Do not turn this on if DnsFilter is used or until the race is fixed
+RUNTIME_GUARD(envoy_restart_features_shared_cares_dns_resolver);
+
 RUNTIME_GUARD(envoy_restart_features_worker_threads_watchdog_fix);
 // Begin false flags. Most of them should come with a TODO to flip true.
 
@@ -309,6 +314,12 @@ FALSE_RUNTIME_GUARD(envoy_reloadable_features_getaddrinfo_no_ai_flags);
 // Flip to true after two release periods.
 FALSE_RUNTIME_GUARD(envoy_reloadable_features_remove_legacy_route_formatter);
 
+// Enables on-demand DNS resolution for DNS clusters that use cluster-provided load
+// balancing. When enabled, such clusters skip DNS resolution during warming and instead
+// resolve on first use. Clusters that do not use cluster-provided load balancing are
+// unaffected. This is evaluated when a cluster is created, so changing it at runtime affects
+// clusters created afterwards (for example on the next CDS update) and not existing clusters.
+FALSE_RUNTIME_GUARD(envoy_reloadable_features_dns_cluster_on_demand_resolution);
 // Force a local reply from upstream envoy for reverse connections.
 FALSE_RUNTIME_GUARD(envoy_reloadable_features_reverse_conn_force_local_reply);
 // RELEASE_ASSERT when upstream stream detects UAF of downstream response decoder instance.
@@ -346,10 +357,6 @@ FALSE_RUNTIME_GUARD(envoy_reloadable_features_http2_record_histograms);
 // validated in production. When disabled, QUIC retains zlib-only compression while TCP TLS has
 // no certificate compression.
 FALSE_RUNTIME_GUARD(envoy_reloadable_features_tls_certificate_compression_brotli);
-
-// DnsFilter created resolver on the worker thread which could lead to race when sharing resolvers
-// Do not turn this on if DnsFilter is used or until the race is fixed
-FALSE_RUNTIME_GUARD(envoy_restart_features_shared_cares_dns_resolver);
 
 // Block of non-boolean flags. Use of int flags is deprecated. Do not add more.
 ABSL_FLAG(uint64_t, re2_max_program_size_error_level, 100, ""); // NOLINT
