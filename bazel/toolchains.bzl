@@ -25,6 +25,7 @@ exports_files([
     "bin/llvm-dwp",
     "{lib_dir}/libclang-cpp.so.{major_minor}",
     "{lib_dir}/libLLVM.so.{major_minor}",
+    "bin/clang-format",
     "lib/clang/{major}/include/fuzzer/FuzzedDataProvider.h",
 ])
 
