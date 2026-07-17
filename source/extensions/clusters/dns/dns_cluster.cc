@@ -14,6 +14,7 @@
 #include "source/common/network/dns_resolver/dns_factory_util.h"
 #include "source/extensions/clusters/common/dns_cluster_backcompat.h"
 #include "source/extensions/clusters/common/logical_host.h"
+#include "source/extensions/clusters/dns/on_demand_dns_cluster.h"
 #include "source/extensions/clusters/logical_dns/logical_dns_cluster.h"
 #include "source/extensions/clusters/strict_dns/strict_dns_cluster.h"
 
@@ -28,6 +29,11 @@ DnsClusterFactory::createClusterWithConfig(
   auto dns_resolver_or_error = selectDnsResolver(proto_config.typed_dns_resolver_config(), context);
 
   RETURN_IF_NOT_OK(dns_resolver_or_error.status());
+
+  if (onDemandDnsEnabled(cluster)) {
+    return createOnDemandDnsCluster(cluster, proto_config, context,
+                                    std::move(*dns_resolver_or_error));
+  }
 
   absl::StatusOr<std::unique_ptr<ClusterImplBase>> cluster_or_error;
 
@@ -64,6 +70,11 @@ public:
     createDnsClusterFromLegacyFields(cluster, typed_config);
 
     typed_config.set_all_addresses_in_single_endpoint(set_all_addresses_in_single_endpoint_);
+
+    if (onDemandDnsEnabled(cluster)) {
+      return createOnDemandDnsCluster(cluster, typed_config, context,
+                                      std::move(*dns_resolver_or_error));
+    }
 
     absl::StatusOr<std::unique_ptr<ClusterImplBase>> cluster_or_error;
 
@@ -406,6 +417,7 @@ void DnsClusterImpl::ResolveTarget::startResolve() {
             ENVOY_LOG(error, "Failed to process DNS response for {} with error: {}", dns_address_,
                       new_hosts_or_error.status().message());
             parent_.info_->configUpdateStats().update_failure_.inc();
+            parent_.onResolveTargetComplete(new_hosts_or_error.status().message());
             return;
           }
 
@@ -454,6 +466,7 @@ void DnsClusterImpl::ResolveTarget::startResolve() {
         // complexity is needed so will start with this.
         parent_.onPreInitComplete();
         resolve_timer_->enableTimer(final_refresh_rate);
+        parent_.onResolveTargetComplete(details);
       });
 }
 
