@@ -10,18 +10,27 @@ envoy_extension_package()
 
 envoy_cc_extension(
     name = "dns_cluster_lib",
-    srcs = ["dns_cluster.cc"],
-    hdrs = ["dns_cluster.h"],
+    srcs = [
+        "dns_cluster.cc",
+        "on_demand_dns_cluster.cc",
+    ],
+    hdrs = [
+        "dns_cluster.h",
+        "on_demand_dns_cluster.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//source/common/common:dns_utils_lib",
+        "//source/common/common:minimal_logger_lib",
         "//source/common/network/dns_resolver:dns_factory_util_lib",
+        "//source/common/runtime:runtime_features_lib",
         "//source/common/upstream:cluster_factory_includes",
         "//source/common/upstream:upstream_includes",
         "//source/extensions/clusters/common:dns_cluster_backcompat_lib",
         "//source/extensions/clusters/common:logical_host_lib",
         "//source/extensions/clusters/logical_dns:logical_dns_cluster_lib",
         "//source/extensions/clusters/strict_dns:strict_dns_cluster_lib",
+        "//source/extensions/load_balancing_policies/round_robin:round_robin_lb_lib",
         "@envoy_api//envoy/config/cluster/v3:pkg_cc_proto",
         "@envoy_api//envoy/config/endpoint/v3:pkg_cc_proto",
         "@envoy_api//envoy/extensions/clusters/dns/v3:pkg_cc_proto",
