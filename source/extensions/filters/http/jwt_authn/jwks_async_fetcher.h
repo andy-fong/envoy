@@ -48,6 +48,12 @@ private:
   void fetch();
   // Handle fetch done.
   void handleFetchDone();
+  // Whether the filter chain (or its listener/server) owning this fetcher is draining. When it is,
+  // the async fetch loop must stop instead of scheduling more fetches: during an in-place filter
+  // chain update the old filter chain (and this fetcher) is kept alive for the drain period, but
+  // its refetch timer runs on the main thread independent of any connection, so without this check
+  // every config update leaks a parallel fetch loop against the same Jwks endpoint.
+  bool isFilterChainDraining() const;
 
   // Override the functions from Common::JwksFetcher::JwksReceiver
   void onJwksSuccess(Envoy::JwtVerify::JwksPtr&& jwks) override;
