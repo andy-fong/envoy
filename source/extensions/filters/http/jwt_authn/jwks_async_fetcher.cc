@@ -1,5 +1,7 @@
 #include "source/extensions/filters/http/jwt_authn/jwks_async_fetcher.h"
 
+#include "envoy/network/drain_decision.h"
+
 #include "source/common/protobuf/utility.h"
 #include "source/common/tracing/http_tracer_impl.h"
 
@@ -79,9 +81,24 @@ std::chrono::seconds JwksAsyncFetcher::getCacheDuration(const RemoteJwks& remote
   return DefaultCacheExpirationSec;
 }
 
+bool JwksAsyncFetcher::shouldStopFetchingForDrain() const {
+  return context_.drainDecision().drainClose(Network::DrainDirection::All);
+}
+
 void JwksAsyncFetcher::fetch() {
   if (fetcher_) {
     fetcher_->cancel();
+  }
+
+  // Stop the async fetch loop once the owning filter chain is draining. The refetch timer may
+  // already be armed (or an in-flight fetch may re-arm it) when the drain starts, so bail here
+  // and do not schedule any further fetch.
+  if (shouldStopFetchingForDrain()) {
+    // Normally a filter chain cannot start draining before its init target is ready. However,
+    // server draining can race with listener warming, so do not leave initialization blocked.
+    handleFetchDone();
+    ENVOY_LOG(debug, "{}: filter chain draining, stop fetching", debug_name_);
+    return;
   }
 
   ENVOY_LOG(debug, "{}: started", debug_name_);
@@ -100,7 +117,10 @@ void JwksAsyncFetcher::handleFetchDone() {
 void JwksAsyncFetcher::onJwksSuccess(Envoy::JwtVerify::JwksPtr&& jwks) {
   done_fn_(std::move(jwks));
   handleFetchDone();
-  refetch_timer_->enableTimer(good_refetch_duration_);
+  // Do not schedule the next fetch if the owning filter chain is draining; it is being torn down.
+  if (!shouldStopFetchingForDrain()) {
+    refetch_timer_->enableTimer(good_refetch_duration_);
+  }
   stats_.jwks_fetch_success_.inc();
 
   // Note: not to free fetcher_ within onJwksSuccess or onJwksError function.
@@ -116,7 +136,10 @@ void JwksAsyncFetcher::onJwksSuccess(Envoy::JwtVerify::JwksPtr&& jwks) {
 void JwksAsyncFetcher::onJwksError(Failure) {
   ENVOY_LOG(warn, "{}: failed", debug_name_);
   handleFetchDone();
-  refetch_timer_->enableTimer(failed_refetch_duration_);
+  // Do not schedule the next fetch if the owning filter chain is draining; it is being torn down.
+  if (!shouldStopFetchingForDrain()) {
+    refetch_timer_->enableTimer(failed_refetch_duration_);
+  }
   stats_.jwks_fetch_failed_.inc();
 
   // Note: not to free fetcher_ in this function. Please see comment at onJwksSuccess.
