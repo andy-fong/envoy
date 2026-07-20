@@ -146,7 +146,9 @@ public:
 
   // DrainDecision
   bool drainClose(Network::DrainDirection scope) const override {
-    return drain_manager_->drainClose(scope) || server_.drainManager().drainClose(scope);
+    // Validation listeners have no listener drain manager.
+    return (drain_manager_ != nullptr && drain_manager_->drainClose(scope)) ||
+           server_.drainManager().drainClose(scope);
   }
   Common::CallbackHandlePtr addOnDrainCloseCb(Network::DrainDirection,
                                               DrainCloseCb) const override {
