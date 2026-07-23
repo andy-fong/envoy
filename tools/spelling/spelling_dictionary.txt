@@ -730,6 +730,7 @@ combinatorial
 comparator
 compat
 completable
+computable
 cond
 condvar
 conf

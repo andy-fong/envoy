@@ -66,7 +66,8 @@ DnsResolverImpl::DnsResolverImpl(
       reinit_channel_on_timeout_(config.reinit_channel_on_timeout()), resolvers_csv_(resolvers_csv),
       filter_unroutable_families_(config.filter_unroutable_families()),
       scope_(root_scope.createScope("dns.cares.")), stats_(generateCaresDnsResolverStats(*scope_)),
-      max_cache_ttl_(static_cast<uint32_t>(PROTOBUF_GET_WRAPPED_OR_DEFAULT(config, qcache_max_ttl, DEFAULT_QCACHE_MAX_TTL))) {
+      max_cache_ttl_(static_cast<uint32_t>(
+          PROTOBUF_GET_WRAPPED_OR_DEFAULT(config, qcache_max_ttl, DEFAULT_QCACHE_MAX_TTL))) {
   AresOptions options = defaultAresOptions();
   initializeChannel(&options.options_, options.optmask_);
 
@@ -697,16 +698,19 @@ public:
     auto csv_or_error = DnsResolverImpl::maybeBuildResolversCsv(resolvers);
     RETURN_IF_NOT_OK(csv_or_error.status());
 
-    auto resolver = std::make_shared<Network::DnsResolverImpl>(cares, dispatcher, csv_or_error.value(),
-                                                      api.rootScope());
+    auto resolver = std::make_shared<Network::DnsResolverImpl>(
+        cares, dispatcher, csv_or_error.value(), api.rootScope());
     if (Runtime::runtimeFeatureEnabled("envoy.restart_features.shared_cares_dns_resolver")) {
       // clean up any nil resolver in the map so it doesn't keep growing
       auto original_size = resolver_map_.size();
-      absl::erase_if(resolver_map_, [](const std::pair<const std::size_t, std::weak_ptr<Network::DnsResolver>>& entry) {
-        return entry.second.lock() == nullptr;
-      });
+      absl::erase_if(
+          resolver_map_,
+          [](const std::pair<const std::size_t, std::weak_ptr<Network::DnsResolver>>& entry) {
+            return entry.second.lock() == nullptr;
+          });
       if (resolver_map_.size() < original_size) {
-        ENVOY_LOG(trace, "cleaned up {} entries in resolver_map_", original_size - resolver_map_.size());
+        ENVOY_LOG(trace, "cleaned up {} entries in resolver_map_",
+                  original_size - resolver_map_.size());
       }
       resolver_map_.emplace(key, resolver);
       ENVOY_LOG(trace, "resolver_map_ size after adding: {}", resolver_map_.size());

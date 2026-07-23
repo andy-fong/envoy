@@ -213,7 +213,7 @@ void OAuth2ClientImpl::onSuccess(const Http::AsyncClient::Request&,
 
   if (response_code != "200") {
     ENVOY_STREAM_LOG(debug, "Oauth response code: {} ({} byte body)", *decoder_callbacks_,
-                            response_code, message->body().length());
+                     response_code, message->body().length());
     switch (oldState) {
     case OAuthState::PendingAccessToken:
       handleOAuthFailure(is_request_dispatched, "Failed to get access token",
@@ -236,9 +236,9 @@ void OAuth2ClientImpl::onSuccess(const Http::AsyncClient::Request&,
     MessageUtil::loadFromJson(response_body, response, ProtobufMessage::getNullValidationVisitor());
   }
   END_TRY catch (EnvoyException& e) {
-    handleOAuthFailure(is_request_dispatched, "Failed to parse oauth response body",
-                       fmt::format("response body size: {}, exception: {}", response_body.size(),
-                                   e.what()));
+    handleOAuthFailure(
+        is_request_dispatched, "Failed to parse oauth response body",
+        fmt::format("response body size: {}, exception: {}", response_body.size(), e.what()));
     return;
   }
 
