@@ -52,6 +52,7 @@
 #include "source/common/tls/context_manager_impl.h"
 #include "source/common/upstream/cluster_manager_impl.h"
 #include "source/common/version/version.h"
+#include "source/server/cgroup_cpu_util.h"
 #include "source/server/configuration_impl.h"
 #include "source/server/listener_hooks.h"
 #include "source/server/listener_manager_factory.h"
@@ -453,8 +454,7 @@ void InstanceBase::initialize(Network::Address::InstanceConstSharedPtr local_add
         // ticket keys from `static_resources.secrets`. Print the redacted proto instead; the YAML
         // is omitted entirely because a raw string cannot be redacted.
         ENVOY_LOG(critical, "error `{}` initializing config '{}' from path '{}'", e.what(),
-                  MessageUtil::redactedDebugString(options_.configProto()),
-                  options_.configPath());
+                  MessageUtil::redactedDebugString(options_.configProto()), options_.configPath());
         terminate();
         throw;
       },
@@ -577,6 +577,10 @@ absl::Status InstanceBase::initializeOrThrow(Network::Address::InstanceConstShar
   initialization_timer_ = std::make_unique<Stats::HistogramCompletableTimespanImpl>(
       server_stats_->initialization_time_ms_, timeSource());
   server_stats_->concurrency_.set(options_.concurrency());
+  ENVOY_LOG(debug, "server concurrency set to {}", options_.concurrency());
+  // Logging is now initialized; emit the cgroup CPU detection result stashed during the
+  // OptionsImpl constructor.
+  CgroupDetectorSingleton::get().logResult();
   if (!options().hotRestartDisabled()) {
     server_stats_->hot_restart_epoch_.set(options_.restartEpoch());
   }

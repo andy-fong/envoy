@@ -1649,10 +1649,9 @@ ClusterImplBase::ClusterImplBase(const envoy::config::cluster::v3::Cluster& clus
         validateTransportSocketSupportsQuic(cluster.transport_socket());
     SET_AND_RETURN_IF_NOT_OK(supports_quic.status(), creation_status);
     if (!*supports_quic) {
-      creation_status = absl::InvalidArgumentError(
-          fmt::format("HTTP3 requires a QuicUpstreamTransport transport socket: {} {}",
-                      cluster.name(),
-                      MessageUtil::redactedDebugString(cluster.transport_socket())));
+      creation_status = absl::InvalidArgumentError(fmt::format(
+          "HTTP3 requires a QuicUpstreamTransport transport socket: {} {}", cluster.name(),
+          MessageUtil::redactedDebugString(cluster.transport_socket())));
       return;
     }
 #else

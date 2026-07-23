@@ -564,11 +564,10 @@ XdsManagerImpl::replaceAdsMux(const envoy::config::core::v3::ApiConfigSource& ad
           return Protobuf::util::MessageDifferencer::Equivalent(a, b);
         });
     if (!equal_config_validators) {
-      return absl::InternalError(
-          fmt::format("Cannot replace config_validators in ADS config "
-                      "(different contents)\nPrevious: {}\nNew: {}",
-                      MessageUtil::redactedDebugString(bootstrap_ads_config),
-                      MessageUtil::redactedDebugString(ads_config)));
+      return absl::InternalError(fmt::format("Cannot replace config_validators in ADS config "
+                                             "(different contents)\nPrevious: {}\nNew: {}",
+                                             MessageUtil::redactedDebugString(bootstrap_ads_config),
+                                             MessageUtil::redactedDebugString(ads_config)));
     }
   }
 
