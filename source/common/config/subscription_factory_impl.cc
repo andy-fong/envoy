@@ -79,7 +79,7 @@ absl::StatusOr<SubscriptionPtr> SubscriptionFactoryImpl::subscriptionFromConfigS
       return absl::InvalidArgumentError(
           "REST_LEGACY no longer a supported ApiConfigSource. "
           "Please specify an explicit supported api_type in the following config:\n" +
-          config.DebugString());
+          MessageUtil::redactedDebugString(config));
     case envoy::config::core::v3::ApiConfigSource::REST:
       subscription_type = "envoy.config_subscription.rest";
       break;
@@ -225,8 +225,9 @@ absl::StatusOr<SubscriptionPtr> SubscriptionFactoryImpl::collectionSubscriptionF
         return std::move(ptr_or_error.value());
       }
       default:
-        return absl::InvalidArgumentError(fmt::format("Unknown xdstp:// transport API type in {}",
-                                                      api_config_source.DebugString()));
+        return absl::InvalidArgumentError(
+            fmt::format("Unknown xdstp:// transport API type in {}",
+                        MessageUtil::redactedDebugString(api_config_source)));
       }
     }
     case envoy::config::core::v3::ConfigSource::ConfigSourceSpecifierCase::kAds: {
