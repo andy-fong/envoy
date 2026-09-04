@@ -1,6 +1,7 @@
 #include "source/common/protobuf/utility.h"
 
 #include <limits>
+#include <memory>
 #include <numeric>
 
 #include "envoy/annotations/deprecation.pb.h"
@@ -650,6 +651,16 @@ void redact(Protobuf::Message* message, bool ancestor_is_sensitive) {
 
 void MessageUtil::redact(Protobuf::Message& message) {
   ::Envoy::redact(&message, /* ancestor_is_sensitive = */ false);
+}
+
+std::string MessageUtil::redactedDebugString(const Protobuf::Message& message) {
+  std::unique_ptr<Protobuf::Message> clone(message.New());
+  // Round-tripping through the wire format keeps this working for both full and lite protos.
+  if (clone == nullptr || !clone->ParseFromString(message.SerializeAsString())) {
+    return "[redaction failed]";
+  }
+  redact(*clone);
+  return clone->DebugString();
 }
 
 std::string MessageUtil::toTextProto(const Protobuf::Message& message) {

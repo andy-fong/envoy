@@ -47,6 +47,7 @@ envoy_cc_extension(
         "//envoy/registry",
         "//source/common/common:assert_lib",
         "//source/common/config:utility_lib",
+        "//source/common/protobuf:utility_lib",
         "//source/extensions/stat_sinks/metrics_service:metrics_proto_descriptors_lib",
         "//source/extensions/stat_sinks/metrics_service:metrics_service_grpc_lib",
         "//source/server:configuration_lib",

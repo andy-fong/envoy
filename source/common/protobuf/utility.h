@@ -627,6 +627,23 @@ public:
   static void redact(Protobuf::Message& message);
 
   /**
+   * Returns the debug string of a copy of `message` that has been passed through `redact()`, so
+   * that fields annotated as `udpa.annotations.sensitive` (private keys, passwords, tokens, API
+   * keys, ...) are not disclosed.
+   *
+   * Prefer this over `message.DebugString()` whenever a config proto is written to a log, an
+   * exception message, or an xDS status message: `DebugString()` ignores the `sensitive`
+   * annotation and will happily print secret material.
+   *
+   * Carries the same limitations as `redact()` regarding `Struct`-typed and unregistered `Any`
+   * fields.
+   *
+   * @param message message to print.
+   * @return redacted debug string of `message`.
+   */
+  static std::string redactedDebugString(const Protobuf::Message& message);
+
+  /**
    * Sanitizes a string to contain only valid UTF-8. Invalid UTF-8 characters will be replaced. If
    * the input string is valid UTF-8, it will be returned unmodified.
    */
