@@ -8,6 +8,8 @@
 #include "envoy/config/cluster/v3/filter.pb.h"
 #include "envoy/config/cluster/v3/filter.pb.validate.h"
 #include "envoy/config/core/v3/base.pb.h"
+#include "envoy/config/core/v3/config_source.pb.h"
+#include "envoy/config/core/v3/grpc_service.pb.h"
 #include "envoy/type/v3/percent.pb.h"
 
 #include "source/common/common/base64.h"
@@ -504,6 +506,47 @@ insensitive_repeated_string:
 
   MessageUtil::redact(actual);
   EXPECT_TRUE(TestUtility::protoEqual(expected, actual));
+}
+
+// `redactedDebugString` must hide sensitive fields while leaving the original message untouched.
+TEST_F(ProtobufUtilityTest, RedactedDebugString) {
+  envoy::test::Sensitive message;
+  TestUtility::loadFromYaml(R"EOF(
+sensitive_string: my-private-key
+insensitive_string: some-name
+)EOF",
+                            message);
+
+  const std::string debug_string = MessageUtil::redactedDebugString(message);
+  EXPECT_THAT(debug_string, Not(HasSubstr("my-private-key")));
+  EXPECT_THAT(debug_string, HasSubstr("[redacted]"));
+  EXPECT_THAT(debug_string, HasSubstr("some-name"));
+
+  // The input must not be mutated.
+  EXPECT_EQ("my-private-key", message.sensitive_string());
+}
+
+TEST_F(ProtobufUtilityTest, RedactedDebugStringNestedGrpcCredentials) {
+  envoy::config::core::v3::GrpcService grpc_service;
+  auto* google_grpc = grpc_service.mutable_google_grpc();
+  google_grpc->set_target_uri("control-plane.example.com");
+  google_grpc->mutable_channel_credentials()
+      ->mutable_ssl_credentials()
+      ->mutable_private_key()
+      ->set_inline_string("private-key-material");
+
+  envoy::config::core::v3::ApiConfigSource api_config_source;
+  *api_config_source.add_grpc_services() = grpc_service;
+  const std::string config_debug_string = MessageUtil::redactedDebugString(api_config_source);
+  EXPECT_THAT(config_debug_string, Not(HasSubstr("private-key-material")));
+  EXPECT_THAT(config_debug_string, HasSubstr("[redacted]"));
+  EXPECT_THAT(config_debug_string, HasSubstr("control-plane.example.com"));
+
+  ProtobufWkt::Any packed_grpc_service;
+  ASSERT_TRUE(packed_grpc_service.PackFrom(grpc_service));
+  const std::string any_debug_string = MessageUtil::redactedDebugString(packed_grpc_service);
+  EXPECT_THAT(any_debug_string, Not(HasSubstr("private-key-material")));
+  EXPECT_THAT(any_debug_string, HasSubstr("[redacted]"));
 }
 
 // Fields that are values in a sensitive map should be redacted.

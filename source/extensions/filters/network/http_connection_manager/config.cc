@@ -218,7 +218,7 @@ validateRds(const envoy::extensions::filters::network::http_connection_manager::
     return absl::InvalidArgumentError(
         fmt::format("An RDS config must have either a 'config_source' or an xDS-TP based "
                     "'route_config_name'. Error while parsing RDS config:\n{}",
-                    rds.DebugString()));
+                    MessageUtil::redactedDebugString(rds)));
   }
   return absl::OkStatus();
 }

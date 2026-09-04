@@ -448,8 +448,12 @@ void InstanceBase::initialize(Network::Address::InstanceConstSharedPtr local_add
   MULTI_CATCH(
       const EnvoyException& e,
       {
-        ENVOY_LOG(critical, "error `{}` initializing config '{} {} {}'", e.what(),
-                  options_.configProto().DebugString(), options_.configYaml(),
+        // Neither DebugString() nor the raw config YAML honor `udpa.annotations.sensitive`, so
+        // printing them here would disclose inline TLS private keys, generic secrets and session
+        // ticket keys from `static_resources.secrets`. Print the redacted proto instead; the YAML
+        // is omitted entirely because a raw string cannot be redacted.
+        ENVOY_LOG(critical, "error `{}` initializing config '{}' from path '{}'", e.what(),
+                  MessageUtil::redactedDebugString(options_.configProto()),
                   options_.configPath());
         terminate();
         throw;

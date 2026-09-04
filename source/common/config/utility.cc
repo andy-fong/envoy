@@ -89,30 +89,34 @@ checkApiConfigSourceNames(const envoy::config::core::v3::ApiConfigSource& api_co
   if (api_config_source.cluster_names().empty() && api_config_source.grpc_services().empty()) {
     return absl::InvalidArgumentError(
         fmt::format("API configs must have either a gRPC service or a cluster name defined: {}",
-                    api_config_source.DebugString()));
+                    MessageUtil::redactedDebugString(api_config_source)));
   }
 
   if (is_grpc) {
     if (!api_config_source.cluster_names().empty()) {
       return absl::InvalidArgumentError(
           fmt::format("{}::(AGGREGATED_)(DELTA_)GRPC must not have a cluster name specified: {}",
-                      api_config_source.GetTypeName(), api_config_source.DebugString()));
+                      api_config_source.GetTypeName(),
+                      MessageUtil::redactedDebugString(api_config_source)));
     }
     if (api_config_source.grpc_services_size() > max_grpc_services) {
       return absl::InvalidArgumentError(fmt::format(
           "{}::(AGGREGATED_)(DELTA_)GRPC must have no more than {} gRPC services specified: {}",
-          api_config_source.GetTypeName(), max_grpc_services, api_config_source.DebugString()));
+          api_config_source.GetTypeName(), max_grpc_services,
+          MessageUtil::redactedDebugString(api_config_source)));
     }
   } else {
     if (!api_config_source.grpc_services().empty()) {
       return absl::InvalidArgumentError(
           fmt::format("{}, if not a gRPC type, must not have a gRPC service specified: {}",
-                      api_config_source.GetTypeName(), api_config_source.DebugString()));
+                      api_config_source.GetTypeName(),
+                      MessageUtil::redactedDebugString(api_config_source)));
     }
     if (api_config_source.cluster_names().size() != 1) {
       return absl::InvalidArgumentError(
           fmt::format("{} must have a singleton cluster name specified: {}",
-                      api_config_source.GetTypeName(), api_config_source.DebugString()));
+                      api_config_source.GetTypeName(),
+                      MessageUtil::redactedDebugString(api_config_source)));
     }
   }
   return absl::OkStatus();
@@ -254,13 +258,15 @@ Utility::getGrpcConfigFromApiConfigSource(
     if (!isApiTypeAggregated(api_config_source.api_type())) {
       return absl::InvalidArgumentError(fmt::format("{} type must be of aggregated gRPC: {}",
                                                     api_config_source.GetTypeName(),
-                                                    api_config_source.DebugString()));
+                                                    MessageUtil::redactedDebugString(
+                                                        api_config_source)));
     }
   } else {
     if (!isApiTypeNonAggregated(api_config_source.api_type())) {
       return absl::InvalidArgumentError(fmt::format("{} type must be of non-aggregated gRPC: {}",
                                                     api_config_source.GetTypeName(),
-                                                    api_config_source.DebugString()));
+                                                    MessageUtil::redactedDebugString(
+                                                        api_config_source)));
     }
   }
 

@@ -189,7 +189,8 @@ void AuthenticatorImpl::startVerify() {
   }
 
   if (!use_jwt_cache) {
-    ENVOY_LOG(debug, "{}: Parse Jwt {}", name(), curr_token_->token());
+    // The token value is a bearer credential; log only that a parse is happening.
+    ENVOY_LOG(debug, "{}: Parse Jwt ({} bytes)", name(), curr_token_->token().size());
     owned_jwt_ = std::make_unique<JwtVerify::Jwt>();
     status = owned_jwt_->parseFromString(curr_token_->token());
     jwt_ = owned_jwt_.get();
