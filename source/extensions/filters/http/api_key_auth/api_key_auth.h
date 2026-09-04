@@ -114,8 +114,9 @@ public:
     credentials_.reserve(proto_config.credentials().size());
     for (const auto& credential : proto_config.credentials()) {
       if (credentials_.contains(credential.key())) {
-        creation_status = absl::InvalidArgumentError(
-            fmt::format("Duplicated credential key: '{}'", credential.key()));
+        // This message reaches both the error log and the xDS NACK sent to the control plane. Do
+        // not echo any part of Credential because its containing proto field is sensitive.
+        creation_status = absl::InvalidArgumentError("Duplicated credential key");
         return;
       }
       credentials_[credential.key()] = credential.client();

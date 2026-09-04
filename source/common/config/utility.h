@@ -161,7 +161,7 @@ public:
           "V2 xDS transport protocol version is deprecated in {}. "
           "The v2 xDS major version has been removed and is no longer supported. "
           "See the advice in https://www.envoyproxy.io/docs/envoy/latest/faq/api/envoy_v3.",
-          api_config_source.DebugString());
+          MessageUtil::redactedDebugString(api_config_source));
       ENVOY_LOG_MISC(warn, warning);
       return absl::InvalidArgumentError(warning);
     }

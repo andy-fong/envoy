@@ -1631,14 +1631,14 @@ ClusterImplBase::ClusterImplBase(const envoy::config::cluster::v3::Cluster& clus
     if (!raw_factory_pointer->supportsAlpn()) {
       creation_status = absl::InvalidArgumentError(
           fmt::format("ALPN configured for cluster {} which has a non-ALPN transport socket: {}",
-                      cluster.name(), cluster.DebugString()));
+                      cluster.name(), MessageUtil::redactedDebugString(cluster)));
       return;
     }
     if (!matcher_supports_alpn &&
         !runtime_.snapshot().featureEnabled(ClusterImplBase::DoNotValidateAlpnRuntimeKey, 0)) {
       creation_status = absl::InvalidArgumentError(fmt::format(
           "ALPN configured for cluster {} which has a non-ALPN transport socket matcher: {}",
-          cluster.name(), cluster.DebugString()));
+          cluster.name(), MessageUtil::redactedDebugString(cluster)));
       return;
     }
   }
@@ -1651,7 +1651,8 @@ ClusterImplBase::ClusterImplBase(const envoy::config::cluster::v3::Cluster& clus
     if (!*supports_quic) {
       creation_status = absl::InvalidArgumentError(
           fmt::format("HTTP3 requires a QuicUpstreamTransport transport socket: {} {}",
-                      cluster.name(), cluster.transport_socket().DebugString()));
+                      cluster.name(),
+                      MessageUtil::redactedDebugString(cluster.transport_socket())));
       return;
     }
 #else

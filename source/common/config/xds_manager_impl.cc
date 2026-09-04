@@ -564,14 +564,16 @@ XdsManagerImpl::replaceAdsMux(const envoy::config::core::v3::ApiConfigSource& ad
           return Protobuf::util::MessageDifferencer::Equivalent(a, b);
         });
     if (!equal_config_validators) {
-      return absl::InternalError(fmt::format("Cannot replace config_validators in ADS config "
-                                             "(different contents)\nPrevious: {}\nNew: {}",
-                                             bootstrap_ads_config.DebugString(),
-                                             ads_config.DebugString()));
+      return absl::InternalError(
+          fmt::format("Cannot replace config_validators in ADS config "
+                      "(different contents)\nPrevious: {}\nNew: {}",
+                      MessageUtil::redactedDebugString(bootstrap_ads_config),
+                      MessageUtil::redactedDebugString(ads_config)));
     }
   }
 
-  ENVOY_LOG_MISC(trace, "Replacing ADS config with:\n{}", ads_config.DebugString());
+  ENVOY_LOG_MISC(trace, "Replacing ADS config with:\n{}",
+                 MessageUtil::redactedDebugString(ads_config));
   auto strategy_or_error = Config::Utility::prepareJitteredExponentialBackOffStrategy(
       ads_config, random_, Envoy::Config::SubscriptionFactory::RetryInitialDelayMs,
       Envoy::Config::SubscriptionFactory::RetryMaxDelayMs);
