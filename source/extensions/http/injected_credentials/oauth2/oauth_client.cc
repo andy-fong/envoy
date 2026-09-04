@@ -80,8 +80,8 @@ void OAuth2ClientImpl::onSuccess(const Envoy::Http::AsyncClient::Request&,
   // Check that the auth cluster returned a happy response.
   const auto response_code = message->headers().Status()->value().getStringView();
   if (response_code != "200") {
-    ENVOY_LOG(error, "Oauth response code: {}", response_code);
-    ENVOY_LOG(error, "Oauth response body: {}", message->bodyAsString());
+    ENVOY_LOG(error, "Oauth response code: {} ({} byte body)", response_code,
+              message->body().length());
     parent_->onGetAccessTokenFailure(FilterCallbacks::FailureReason::BadResponseCode);
     return;
   }
@@ -93,8 +93,10 @@ void OAuth2ClientImpl::onSuccess(const Envoy::Http::AsyncClient::Request&,
     MessageUtil::loadFromJson(response_body, response, ProtobufMessage::getNullValidationVisitor());
   }
   END_TRY catch (EnvoyException& e) {
-    ENVOY_LOG(error, "Error parsing response body, received exception: {}", e.what());
-    ENVOY_LOG(error, "Response body: {}", response_body);
+    // This body is the token endpoint's 200 response: it carries `access_token` and
+    // `refresh_token`. Log its size only.
+    ENVOY_LOG(error, "Error parsing response body ({} bytes), received exception: {}",
+              response_body.size(), e.what());
     parent_->onGetAccessTokenFailure(FilterCallbacks::FailureReason::BadToken);
     return;
   }
