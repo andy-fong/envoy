@@ -13,6 +13,7 @@
 #include "source/common/common/base64.h"
 #include "source/common/common/enum_to_int.h"
 #include "source/common/common/json_escape_string.h"
+#include "source/common/http/header_utility.h"
 #include "source/common/http/headers.h"
 #include "source/common/http/utility.h"
 #include "source/common/protobuf/utility.h"
@@ -1174,7 +1175,6 @@ bool McpJsonRestBridgeFilter::validateMcpNameHeader(const nlohmann::json& json_r
 void McpJsonRestBridgeFilter::handleMcpMethod(
     const nlohmann::json& json_rpc, Http::RequestHeaderMapOptRef request_headers,
     const McpJsonRestBridgePerRouteConfig* per_route_config) {
-  ENVOY_STREAM_LOG(debug, "Handling MCP JSON-RPC: {}", *decoder_callbacks_, json_rpc.dump());
   if (!validateJsonRpcIdAndMethod(json_rpc).ok()) {
     return;
   }
@@ -1183,6 +1183,7 @@ void McpJsonRestBridgeFilter::handleMcpMethod(
       isStatelessProtocolRequest(json_rpc, config_->maxSupportedProtocolVersion());
 
   std::string method = json_rpc[McpConstants::METHOD_FIELD];
+  ENVOY_STREAM_LOG(debug, "Handling MCP JSON-RPC method: {}", *decoder_callbacks_, method);
 
   if (!validateMcpProtocolVersionHeader(json_rpc, method, request_headers).ok()) {
     return;
@@ -1326,8 +1327,8 @@ void McpJsonRestBridgeFilter::handleMcpMethod(
 void McpJsonRestBridgeFilter::encodeJsonRpcData(Http::ResponseHeaderMapOptRef response_headers) {
   const size_t total_size = response_body_.length();
   const char* json_ptr = static_cast<const char*>(response_body_.linearize(total_size));
-  ENVOY_STREAM_LOG(debug, "Encoding Json-RPC data from response body: {}", *encoder_callbacks_,
-                   absl::string_view(json_ptr, total_size));
+  ENVOY_STREAM_LOG(debug, "Encoding Json-RPC data from response body ({} bytes)",
+                   *encoder_callbacks_, total_size);
   switch (mcp_operation_) {
   case McpOperation::ToolsList: {
     json tools = json::parse(json_ptr, json_ptr + total_size, /*parser_callback_t=*/nullptr,
@@ -1507,10 +1508,12 @@ void McpJsonRestBridgeFilter::mapMcpToolToApiBackend(
   }
 
   request_body_str_ = http_request->body.is_null() ? "" : http_request->body.dump();
-  ENVOY_STREAM_LOG(debug, "Mapping MCP tool to HTTP request url: {} method: {} body: {}",
-                   *decoder_callbacks_, http_request->url, http_request->method, request_body_str_);
-
   auto request_headers = decoder_callbacks_->requestHeaders();
+  ENVOY_STREAM_LOG(debug,
+                   "Mapping MCP tool to HTTP request method: {} ({} body bytes), request_id: {}",
+                   *decoder_callbacks_, http_request->method, request_body_str_.size(),
+                   Http::HeaderUtility::getRequestIdForLogging(request_headers));
+
   if (request_headers.has_value()) {
     request_headers->setPath(http_request->url);
     request_headers->setMethod(http_request->method);
@@ -1540,14 +1543,14 @@ void McpJsonRestBridgeFilter::mapMcpToolToApiBackend(
                          key);
         continue;
       }
-      ENVOY_STREAM_LOG(debug, "Adding header: {} with value: {}", *decoder_callbacks_, key, value);
+      ENVOY_STREAM_LOG(debug, "Adding HTTP request header: {}", *decoder_callbacks_, key);
       request_headers->setCopy(lower_key, value);
     }
 
     // Add cookie parameters.
     if (!http_request->cookies_params.empty()) {
-      ENVOY_STREAM_LOG(debug, "Adding cookie: {}", *decoder_callbacks_,
-                       absl::StrJoin(http_request->cookies_params, "; ", absl::PairFormatter("=")));
+      ENVOY_STREAM_LOG(debug, "Adding {} HTTP request cookies", *decoder_callbacks_,
+                       http_request->cookies_params.size());
       request_headers->addCopy(
           Envoy::Http::Headers::get().Cookie,
           absl::StrJoin(http_request->cookies_params, "; ", absl::PairFormatter("=")));
@@ -1593,8 +1596,6 @@ void McpJsonRestBridgeFilter::setDynamicMetadata() {
 
   decoder_callbacks_->streamInfo().setDynamicMetadata(
       std::string(decoder_callbacks_->filterConfigName()), dynamic_metadata);
-  ENVOY_STREAM_LOG(debug, "MCP JSON REST Bridge filter set dynamic metadata: {}",
-                   *decoder_callbacks_, dynamic_metadata.DebugString());
 }
 
 void McpJsonRestBridgeFilter::setParsingMetadata(absl::string_view method,

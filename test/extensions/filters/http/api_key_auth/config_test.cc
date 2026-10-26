@@ -3,8 +3,10 @@
 #include "source/extensions/filters/http/api_key_auth/api_key_auth.h"
 #include "source/extensions/filters/http/api_key_auth/config.h"
 
+#include "test/mocks/http/mocks.h"
 #include "test/mocks/server/mocks.h"
 #include "test/test_common/status_utility.h"
+#include "test/test_common/utility.h"
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -16,6 +18,9 @@ namespace ApiKeyAuth {
 namespace {
 
 using ::Envoy::StatusHelpers::HasStatusMessage;
+using ::testing::_;
+using ::testing::HasSubstr;
+using ::testing::Not;
 
 TEST(ApiKeyAuthFilterFactoryTest, DuplicateApiKey) {
   const std::string yaml = R"(
@@ -25,7 +30,7 @@ TEST(ApiKeyAuthFilterFactoryTest, DuplicateApiKey) {
   - key: key1
     client: user2
   key_sources:
-  - header: "Authorization
+  - header: "Authorization"
   )";
 
   ApiKeyAuthProto proto_config;
@@ -36,7 +41,11 @@ TEST(ApiKeyAuthFilterFactoryTest, DuplicateApiKey) {
 
   auto status_or = factory.createFilterFactoryFromProto(proto_config, "stats", context);
 
-  EXPECT_THAT(status_or, HasStatusMessage("Duplicated credential key: 'key1'"));
+  EXPECT_FALSE(status_or.ok());
+  EXPECT_THAT(status_or, HasStatusMessage("Duplicated credential key"));
+  // No part of the sensitive credential may appear in an error surfaced to logs or xDS.
+  EXPECT_THAT(status_or.status().message(), Not(HasSubstr("key1")));
+  EXPECT_THAT(status_or.status().message(), Not(HasSubstr("user2")));
 }
 
 TEST(ApiKeyAuthFilterFactoryTest, EmptyKeySource) {
