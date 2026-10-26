@@ -75,7 +75,8 @@ public:
   FilterConfigImpl(envoy::extensions::filters::http::jwt_authn::v3::JwtAuthentication proto_config,
                    const std::string& stats_prefix,
                    Server::Configuration::ServerFactoryContext& context, Stats::Scope& scope,
-                   OptRef<Init::Manager> init_manager, absl::Status& creation_status);
+                   OptRef<Init::Manager> init_manager, absl::Status& creation_status,
+                   OptRef<const Network::DrainDecision> drain_decision = {});
 
   ~FilterConfigImpl() override = default;
 
