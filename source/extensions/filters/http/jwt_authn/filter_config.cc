@@ -16,7 +16,8 @@ namespace JwtAuthn {
 FilterConfigImpl::FilterConfigImpl(
     envoy::extensions::filters::http::jwt_authn::v3::JwtAuthentication proto_config,
     const std::string& stats_prefix, Server::Configuration::ServerFactoryContext& context,
-    Stats::Scope& scope, OptRef<Init::Manager> init_manager, absl::Status& creation_status)
+    Stats::Scope& scope, OptRef<Init::Manager> init_manager, absl::Status& creation_status,
+    OptRef<const Network::DrainDecision> drain_decision)
     : proto_config_(std::move(proto_config)),
       stats_(generateStats(stats_prefix, proto_config_.stat_prefix(), scope)),
       cm_(context.clusterManager()), time_source_(context.mainThreadDispatcher().timeSource()) {
@@ -39,8 +40,8 @@ FilterConfigImpl::FilterConfigImpl(
     }
   }
 
-  auto jwks_cache_or =
-      JwksCache::create(proto_config_, context, init_manager, Common::JwksFetcher::create, stats_);
+  auto jwks_cache_or = JwksCache::create(proto_config_, context, init_manager,
+                                         Common::JwksFetcher::create, stats_, drain_decision);
   SET_AND_RETURN_IF_NOT_OK(jwks_cache_or.status(), creation_status);
   jwks_cache_ = std::move(jwks_cache_or.value());
 

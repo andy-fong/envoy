@@ -38,7 +38,8 @@ public:
   JwksDataImpl(const JwtProvider& jwt_provider,
                Server::Configuration::ServerFactoryContext& context,
                OptRef<Init::Manager> init_manager, CreateJwksFetcherCb fetcher_cb,
-               JwtAuthnFilterStats& stats, absl::Status& creation_status)
+               JwtAuthnFilterStats& stats, absl::Status& creation_status,
+               OptRef<const Network::DrainDecision> drain_decision)
       : jwt_provider_(jwt_provider), time_source_(context.timeSource()),
         tls_(context.threadLocal()) {
     std::vector<std::string> audiences;
@@ -147,7 +148,8 @@ public:
       async_fetcher_ = std::make_unique<JwksAsyncFetcher>(
           jwt_provider_.remote_jwks(), retry_policy_, context, init_manager, fetcher_cb,
           stats.jwks_fetch_success_, stats.jwks_fetch_failed_,
-          [this](Envoy::JwtVerify::JwksPtr&& jwks) { setJwksToAllThreads(std::move(jwks)); });
+          [this](Envoy::JwtVerify::JwksPtr&& jwks) { setJwksToAllThreads(std::move(jwks)); },
+          drain_decision);
     }
   }
 
@@ -255,11 +257,12 @@ public:
   JwksCacheImpl(const JwtAuthentication& config,
                 Server::Configuration::ServerFactoryContext& context,
                 OptRef<Init::Manager> init_manager, CreateJwksFetcherCb fetcher_fn,
-                JwtAuthnFilterStats& stats, absl::Status& creation_status)
+                JwtAuthnFilterStats& stats, absl::Status& creation_status,
+                OptRef<const Network::DrainDecision> drain_decision)
       : stats_(stats) {
     for (const auto& [name, provider] : config.providers()) {
       auto jwks_data = std::make_unique<JwksDataImpl>(provider, context, init_manager, fetcher_fn,
-                                                      stats, creation_status);
+                                                      stats, creation_status, drain_decision);
       if (!creation_status.ok()) {
         return;
       }
@@ -320,10 +323,10 @@ absl::StatusOr<JwksCachePtr>
 JwksCache::create(const envoy::extensions::filters::http::jwt_authn::v3::JwtAuthentication& config,
                   Server::Configuration::ServerFactoryContext& context,
                   OptRef<Init::Manager> init_manager, CreateJwksFetcherCb fetcher_fn,
-                  JwtAuthnFilterStats& stats) {
+                  JwtAuthnFilterStats& stats, OptRef<const Network::DrainDecision> drain_decision) {
   absl::Status creation_status = absl::OkStatus();
   auto cache = std::make_unique<JwksCacheImpl>(config, context, init_manager, fetcher_fn, stats,
-                                               creation_status);
+                                               creation_status, drain_decision);
   RETURN_IF_NOT_OK_REF(creation_status);
   return cache;
 }

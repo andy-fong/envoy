@@ -95,7 +95,8 @@ public:
         [this](JwtVerify::JwksPtr&& jwks) {
           Thread::LockGuard lock(mutex_);
           jwks_ = std::move(jwks);
-        });
+        },
+        context.drainDecision());
   }
 
   JwksConstSharedPtr jwks() const override {

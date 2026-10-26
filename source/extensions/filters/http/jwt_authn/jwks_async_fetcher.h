@@ -4,6 +4,7 @@
 
 #include "envoy/extensions/filters/http/jwt_authn/v3/config.pb.h"
 #include "envoy/init/manager.h"
+#include "envoy/network/drain_decision.h"
 #include "envoy/server/factory_context.h"
 #include "envoy/stats/stats.h"
 
@@ -41,7 +42,8 @@ public:
                    Server::Configuration::ServerFactoryContext& context,
                    OptRef<Init::Manager> init_manager, CreateJwksFetcherCb fetcher_fn,
                    Stats::Counter& fetch_success, Stats::Counter& fetch_failed,
-                   JwksDoneFetched done_fn);
+                   JwksDoneFetched done_fn,
+                   OptRef<const Network::DrainDecision> drain_decision = {});
 
   // Get the remote Jwks cache duration.
   static std::chrono::seconds
@@ -52,6 +54,9 @@ private:
   void fetch();
   // Handle fetch done.
   void handleFetchDone();
+  // Whether the async fetch loop should stop for filter chain, listener, or server draining.
+  // Filter chain draining always returns true, while parent drain decisions may be gradual.
+  bool shouldStopFetchingForDrain() const;
 
   // Override the functions from Common::JwksFetcher::JwksReceiver
   void onJwksSuccess(Envoy::JwtVerify::JwksPtr&& jwks) override;
@@ -63,6 +68,17 @@ private:
   const Router::RetryPolicyConstSharedPtr retry_policy_;
   // the factory context
   Server::Configuration::ServerFactoryContext& context_;
+  // the drain decision of the owning filter chain, if any. Falls back to the server drain manager.
+  // WARNING: this is borrowed from the filter chain factory context and is only safe as long as
+  // the fetcher never outlives that context. That holds for statically configured filters: the
+  // filter chain destroys its filter factories (and so this fetcher) before its factory context,
+  // and in-flight connections are drained before the filter chain is destroyed. It does NOT hold
+  // for filters delivered over ECDS: the ECDS provider destructor keeps the last filter config
+  // alive until an asynchronous TLS cleanup completes, after the filter chain context may be gone,
+  // and a refetch timer or JWKS response in that window would read a dangling reference. Before
+  // using jwt_authn with ECDS, replace this with a lifetime-safe drain signal, e.g. a callback
+  // registered via addOnDrainCloseCb() whose handle tolerates the source being destroyed first.
+  const OptRef<const Network::DrainDecision> drain_decision_;
   // the jwks fetcher creator function
   const CreateJwksFetcherCb create_fetcher_fn_;
   // counters incremented on a successful and a failed fetch

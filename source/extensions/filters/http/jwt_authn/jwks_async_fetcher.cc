@@ -39,10 +39,11 @@ JwksAsyncFetcher::JwksAsyncFetcher(const RemoteJwks& remote_jwks,
                                    OptRef<Init::Manager> init_manager,
                                    CreateJwksFetcherCb create_fetcher_fn,
                                    Stats::Counter& fetch_success, Stats::Counter& fetch_failed,
-                                   JwksDoneFetched done_fn)
+                                   JwksDoneFetched done_fn,
+                                   OptRef<const Network::DrainDecision> drain_decision)
     : remote_jwks_(remote_jwks), retry_policy_(std::move(retry_policy)), context_(context),
-      create_fetcher_fn_(create_fetcher_fn), fetch_success_(fetch_success),
-      fetch_failed_(fetch_failed), done_fn_(done_fn),
+      drain_decision_(drain_decision), create_fetcher_fn_(create_fetcher_fn),
+      fetch_success_(fetch_success), fetch_failed_(fetch_failed), done_fn_(done_fn),
       debug_name_(absl::StrCat("Jwks async fetching url=", remote_jwks_.http_uri().uri())) {
   // if async_fetch is not enabled, do nothing.
   if (!remote_jwks_.has_async_fetch()) {
@@ -82,9 +83,26 @@ std::chrono::seconds JwksAsyncFetcher::getCacheDuration(const RemoteJwks& remote
   return DefaultCacheExpirationSec;
 }
 
+bool JwksAsyncFetcher::shouldStopFetchingForDrain() const {
+  const Network::DrainDecision& drain_decision =
+      drain_decision_.has_value() ? *drain_decision_ : context_.drainManager();
+  return drain_decision.drainClose(Network::DrainDirection::All);
+}
+
 void JwksAsyncFetcher::fetch() {
   if (fetcher_) {
     fetcher_->cancel();
+  }
+
+  // Stop the async fetch loop once the owning filter chain is draining. The refetch timer may
+  // already be armed (or an in-flight fetch may re-arm it) when the drain starts, so bail here
+  // and do not schedule any further fetch.
+  if (shouldStopFetchingForDrain()) {
+    // Normally a filter chain cannot start draining before its init target is ready. However,
+    // server draining can race with listener warming, so do not leave initialization blocked.
+    handleFetchDone();
+    ENVOY_LOG(debug, "{}: filter chain draining, stop fetching", debug_name_);
+    return;
   }
 
   ENVOY_LOG(debug, "{}: started", debug_name_);
@@ -102,7 +120,10 @@ void JwksAsyncFetcher::handleFetchDone() {
 void JwksAsyncFetcher::onJwksSuccess(Envoy::JwtVerify::JwksPtr&& jwks) {
   done_fn_(std::move(jwks));
   handleFetchDone();
-  refetch_timer_->enableTimer(good_refetch_duration_);
+  // Do not schedule the next fetch if the owning filter chain is draining; it is being torn down.
+  if (!shouldStopFetchingForDrain()) {
+    refetch_timer_->enableTimer(good_refetch_duration_);
+  }
   fetch_success_.inc();
 
   // Note: not to free fetcher_ within onJwksSuccess or onJwksError function.
@@ -118,7 +139,10 @@ void JwksAsyncFetcher::onJwksSuccess(Envoy::JwtVerify::JwksPtr&& jwks) {
 void JwksAsyncFetcher::onJwksError(Failure) {
   ENVOY_LOG(warn, "{}: failed", debug_name_);
   handleFetchDone();
-  refetch_timer_->enableTimer(failed_refetch_duration_);
+  // Do not schedule the next fetch if the owning filter chain is draining; it is being torn down.
+  if (!shouldStopFetchingForDrain()) {
+    refetch_timer_->enableTimer(failed_refetch_duration_);
+  }
   fetch_failed_.inc();
 
   // Note: not to free fetcher_ in this function. Please see comment at onJwksSuccess.
