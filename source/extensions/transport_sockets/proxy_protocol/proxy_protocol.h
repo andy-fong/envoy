@@ -70,6 +70,7 @@ private:
   void generateHeader();
   void generateHeaderV1();
   void generateHeaderV2();
+  bool generateHeaderV2WithoutDownstream();
   // Combine host-level and config-level TLVs, with fallback if metadata fails to unpack.
   // Host-level has precedence over config-level TLVs.
   // If we fail to parse host metadata, we still read config TLVs.
