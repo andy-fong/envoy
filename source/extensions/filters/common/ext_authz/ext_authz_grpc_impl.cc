@@ -105,13 +105,16 @@ void GrpcClientImpl::check(RequestCallbacks& callbacks,
   options.setParentContext(Http::AsyncClient::ParentContext{&stream_info});
   options.setSampled(emit_client_span_ ? std::nullopt : std::make_optional(false));
 
-  ENVOY_LOG(trace, "Sending CheckRequest: {}", request.DebugString());
+  // CheckRequest can contain credentials in headers and context extensions. These runtime fields
+  // are not annotated as sensitive, so the request must not be rendered into logs.
+  ENVOY_LOG(trace, "Sending CheckRequest");
   request_ = async_client_->send(service_method_, request, *this, parent_span, options);
 }
 
 void GrpcClientImpl::onSuccess(
     Grpc::ResponsePtr<envoy::service::auth::v3::CheckResponse>&& response, Tracing::Span& span) {
-  ENVOY_LOG(trace, "Received CheckResponse: {}", response->DebugString());
+  // CheckResponse can contain sensitive response headers, body, and dynamic metadata.
+  ENVOY_LOG(trace, "Received CheckResponse with status code {}", response->status().code());
   ResponsePtr authz_response = std::make_unique<Response>(Response{});
   authz_response->grpc_status = response->status().code();
   if (response->status().code() == Grpc::Status::WellKnownGrpcStatus::Ok) {

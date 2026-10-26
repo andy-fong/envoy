@@ -1892,8 +1892,8 @@ void Filter::onReceiveMessage(Grpc::ResponsePtr<ProcessingResponse>&& r) {
     return;
   }
 
-  ENVOY_STREAM_LOG(debug, "Received {} response {}", *decoder_callbacks_,
-                   responseCaseToString(response->response_case()), response->DebugString());
+  ENVOY_STREAM_LOG(debug, "Received {} response", *decoder_callbacks_,
+                   responseCaseToString(response->response_case()));
 
   // Update processing mode now because filter callbacks check it
   // and the various "handle" methods below may result in callbacks

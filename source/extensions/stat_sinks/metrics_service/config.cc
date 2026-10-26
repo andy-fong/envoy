@@ -7,6 +7,7 @@
 #include "source/common/common/assert.h"
 #include "source/common/config/utility.h"
 #include "source/common/grpc/async_client_impl.h"
+#include "source/common/protobuf/utility.h"
 #include "source/extensions/stat_sinks/metrics_service/grpc_metrics_proto_descriptors.h"
 #include "source/extensions/stat_sinks/metrics_service/grpc_metrics_service_impl.h"
 
@@ -25,7 +26,8 @@ MetricsServiceSinkFactory::createStatsSink(const Protobuf::Message& config,
           config, server.messageValidationContext().staticValidationVisitor());
   const auto& grpc_service = sink_config.grpc_service();
   RETURN_IF_NOT_OK(Config::Utility::checkTransportVersion(sink_config));
-  ENVOY_LOG(debug, "Metrics Service gRPC service configuration: {}", grpc_service.DebugString());
+  ENVOY_LOG(debug, "Metrics Service gRPC service configuration: {}",
+            MessageUtil::redactedDebugString(grpc_service));
 
   auto client_or_error = server.clusterManager().grpcAsyncClientManager().getOrCreateRawAsyncClient(
       grpc_service, server.scope(), false);

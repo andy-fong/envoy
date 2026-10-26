@@ -4,6 +4,7 @@
 
 #include "source/common/common/empty_string.h"
 #include "source/common/http/utility.h"
+#include "source/common/protobuf/utility.h"
 #include "source/common/runtime/runtime_features.h"
 
 using envoy::extensions::filters::http::jwt_authn::v3::RequirementRule;
@@ -22,7 +23,7 @@ FilterConfigImpl::FilterConfigImpl(
       stats_(generateStats(stats_prefix, proto_config_.stat_prefix(), scope)),
       cm_(context.clusterManager()), time_source_(context.mainThreadDispatcher().timeSource()) {
 
-  ENVOY_LOG(debug, "Loaded JwtAuthConfig: {}", proto_config_.DebugString());
+  ENVOY_LOG(debug, "Loaded JwtAuthConfig: {}", MessageUtil::redactedDebugString(proto_config_));
 
   // claim_name and claim_path are two ways of naming the same thing, so requiring exactly one
   // avoids having to define a precedence between them. PGV cannot express this constraint. This

@@ -242,14 +242,13 @@ void OAuth2ClientImpl::onSuccess(const Http::AsyncClient::Request&,
   if (response_code != "200") {
     const std::string response_body = message->bodyAsString();
     ENVOY_TAGGED_STREAM_LOG(debug, oauthLogTags(*decoder_callbacks_), *decoder_callbacks_,
-                            "Oauth response code: {}", response_code);
-    ENVOY_TAGGED_STREAM_LOG(debug, oauthLogTags(*decoder_callbacks_), *decoder_callbacks_,
-                            "Oauth response body: {}", response_body);
+                            "Oauth response code: {} ({} byte body)", response_code,
+                            response_body.length());
     switch (oldState) {
     case OAuthState::PendingAccessToken:
-      handleOAuthFailure(
-          is_request_dispatched, "Failed to get access token",
-          fmt::format("response code: {}, response body: {}", response_code, response_body));
+      handleOAuthFailure(is_request_dispatched, "Failed to get access token",
+                         fmt::format("response code: {}, response body size: {}", response_code,
+                                     response_body.length()));
       break;
     case OAuthState::PendingAccessTokenByRefreshToken:
       handleRefreshTokenFailure(is_request_dispatched);
@@ -267,8 +266,9 @@ void OAuth2ClientImpl::onSuccess(const Http::AsyncClient::Request&,
     MessageUtil::loadFromJson(response_body, response, ProtobufMessage::getNullValidationVisitor());
   }
   END_TRY catch (EnvoyException& e) {
-    handleOAuthFailure(is_request_dispatched, "Failed to parse oauth response body",
-                       fmt::format("response body: {}, exception: {}", response_body, e.what()));
+    handleOAuthFailure(
+        is_request_dispatched, "Failed to parse oauth response body",
+        fmt::format("response body size: {}, exception: {}", response_body.size(), e.what()));
     return;
   }
 
@@ -277,7 +277,7 @@ void OAuth2ClientImpl::onSuccess(const Http::AsyncClient::Request&,
   if (!response.has_access_token()) {
     handleOAuthFailure(is_request_dispatched,
                        "No access token found in the token exchange response",
-                       fmt::format("response body: {}", response_body));
+                       fmt::format("response body size: {}", response_body.size()));
     return;
   }
 
@@ -293,7 +293,7 @@ void OAuth2ClientImpl::onSuccess(const Http::AsyncClient::Request&,
     handleOAuthFailure(
         is_request_dispatched,
         "No default or explicit access token expiration found in the token exchange response",
-        fmt::format("response body: {}", response_body));
+        fmt::format("response body size: {}", response_body.size()));
     return;
   }
 
