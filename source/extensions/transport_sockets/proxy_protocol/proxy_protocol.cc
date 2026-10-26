@@ -15,6 +15,7 @@
 #include "source/common/formatter/substitution_format_string.h"
 #include "source/common/network/address_impl.h"
 #include "source/common/protobuf/utility.h"
+#include "source/common/runtime/runtime_features.h"
 #include "source/extensions/common/proxy_protocol/proxy_protocol_header.h"
 
 using envoy::config::core::v3::PerHostConfig;
@@ -133,11 +134,43 @@ std::string toHex(Buffer::Instance& buffer) {
   const uint8_t* data = static_cast<const uint8_t*>(buffer.linearize(buffer.length()));
   return Hex::encode(absl::Span<const uint8_t>(data, buffer.length()));
 }
+
+bool hasCompatibleV2Addresses(const Network::ProxyProtocolData& data) {
+  return data.src_addr_ && data.dst_addr_ && data.src_addr_->ip() && data.dst_addr_->ip() &&
+         data.src_addr_->ip()->version() == data.dst_addr_->ip()->version();
+}
 } // namespace
+
+// Keep the no-downstream fallback separate from regular header generation.
+bool UpstreamProxyProtocolSocket::generateHeaderV2WithoutDownstream() {
+  if (!Runtime::runtimeFeatureEnabled(
+          "envoy.reloadable_features.proxy_protocol_v2_custom_tlvs_without_downstream")) {
+    return false;
+  }
+  const auto custom_tlvs = buildCustomTLVs();
+  if (custom_tlvs.empty()) {
+    return false;
+  }
+  const Network::ProxyProtocolData data{
+      callbacks_->connection().connectionInfoProvider().localAddress(),
+      callbacks_->connection().connectionInfoProvider().remoteAddress()};
+  if (!hasCompatibleV2Addresses(data)) {
+    return false;
+  }
+  if (!Common::ProxyProtocol::generateV2Header(data, header_buffer_, pass_all_tlvs_,
+                                               pass_through_tlvs_, custom_tlvs)) {
+    stats_.v2_tlvs_exceed_max_length_.inc();
+  }
+  ENVOY_LOG(trace, "generated proxy protocol v2 header, length: {}, buffer: {}",
+            header_buffer_.length(), toHex(header_buffer_));
+  return true;
+}
 
 void UpstreamProxyProtocolSocket::generateHeaderV2() {
   if (!options_ || !options_->proxyProtocolOptions().has_value()) {
-    Common::ProxyProtocol::generateV2LocalHeader(header_buffer_);
+    if (!generateHeaderV2WithoutDownstream()) {
+      Common::ProxyProtocol::generateV2LocalHeader(header_buffer_);
+    }
   } else {
     std::vector<Envoy::Network::ProxyProtocolTLV> custom_tlvs = buildCustomTLVs();
 

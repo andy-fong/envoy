@@ -39,6 +39,7 @@ envoy_cc_library(
         "//source/common/config:well_known_names",
         "//source/common/formatter:substitution_format_string_lib",
         "//source/common/network:address_lib",
+        "//source/common/runtime:runtime_features_lib",
         "//source/extensions/common/proxy_protocol:proxy_protocol_header_lib",
         "//source/extensions/transport_sockets/common:passthrough_lib",
         "@abseil-cpp//absl/status:statusor",
