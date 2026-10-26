@@ -52,3 +52,42 @@ envoy_extension_cc_test(
         "@envoy_api//envoy/extensions/transport_sockets/raw_buffer/v3:pkg_cc_proto",
     ],
 )
+
+envoy_extension_cc_test(
+    name = "proxy_protocol_tlv_fallback_test",
+    srcs = ["proxy_protocol_tlv_fallback_test.cc"],
+    extension_names = ["envoy.transport_sockets.upstream_proxy_protocol"],
+    rbe_pool = "6gig",
+    deps = [
+        "//envoy/network:proxy_protocol_options_lib",
+        "//source/extensions/common/proxy_protocol:proxy_protocol_header_lib",
+        "//source/extensions/transport_sockets/proxy_protocol:upstream_proxy_protocol",
+        "//test/mocks/buffer:buffer_mocks",
+        "//test/mocks/network:io_handle_mocks",
+        "//test/mocks/network:network_mocks",
+        "//test/mocks/network:transport_socket_mocks",
+        "//test/test_common:test_runtime_lib",
+        "@envoy_api//envoy/config/core/v3:pkg_cc_proto",
+        "@envoy_api//envoy/extensions/transport_sockets/proxy_protocol/v3:pkg_cc_proto",
+    ],
+)
+
+envoy_extension_cc_test(
+    name = "proxy_protocol_tlv_fallback_integration_test",
+    size = "large",
+    srcs = ["proxy_protocol_tlv_fallback_integration_test.cc"],
+    extension_names = ["envoy.transport_sockets.upstream_proxy_protocol"],
+    rbe_pool = "6gig",
+    deps = [
+        "//source/common/network:utility_lib",
+        "//source/extensions/filters/network/tcp_proxy:config",
+        "//source/extensions/health_checkers/http:health_checker_lib",
+        "//source/extensions/transport_sockets/proxy_protocol:upstream_config",
+        "//source/extensions/transport_sockets/raw_buffer:config",
+        "//test/integration:integration_lib",
+        "//test/test_common:environment_lib",
+        "@envoy_api//envoy/config/core/v3:pkg_cc_proto",
+        "@envoy_api//envoy/extensions/transport_sockets/proxy_protocol/v3:pkg_cc_proto",
+        "@envoy_api//envoy/extensions/transport_sockets/raw_buffer/v3:pkg_cc_proto",
+    ],
+)
