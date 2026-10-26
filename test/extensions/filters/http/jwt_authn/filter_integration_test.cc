@@ -783,6 +783,65 @@ TEST_P(RemoteJwksIntegrationTest, WithFailedJwksAsyncFetchFast) {
   cleanup();
 }
 
+// Verify that the async fetch loop of a filter chain that is replaced by an in-place LDS update
+// stops while the old filter chain is draining, and the new filter chain keeps fetching.
+TEST_P(RemoteJwksIntegrationTest, AsyncFetchStopsWhenFilterChainDraining) {
+  // Keep the old filter chain draining for the whole test.
+  setDrainTime(std::chrono::seconds(60));
+
+  // The JWKS cluster does not exist, so every fetch fails immediately and is retried after the
+  // failed refetch duration. This drives the fetch loop without a JWKS upstream.
+  JwtAuthentication proto_config;
+  TestUtility::loadFromYaml(ExampleConfig, proto_config);
+  proto_config.set_stat_prefix("old.");
+  auto& provider0 = (*proto_config.mutable_providers())[std::string(ProviderName)];
+  auto* async_fetch = provider0.mutable_remote_jwks()->mutable_async_fetch();
+  async_fetch->set_fast_listener(true);
+  async_fetch->mutable_failed_refetch_duration()->set_seconds(1);
+
+  HttpFilter filter;
+  filter.set_name("envoy.filters.http.jwt_authn");
+  std::ignore = filter.mutable_typed_config()->PackFrom(proto_config);
+  config_helper_.prependFilter(MessageUtil::getJsonStringFromMessageOrError(filter));
+  config_helper_.skipPortUsageValidation();
+  initialize();
+
+  const std::string old_failed = "http.config_test.jwt_authn.old.jwks_fetch_failed";
+  const std::string new_failed = "http.config_test.jwt_authn.new.jwks_fetch_failed";
+
+  // The fetch loop of the original filter chain is running.
+  test_server_->waitForCounter(old_failed, testing::Ge(2));
+
+  // Replace the filter chain in place: only the JWT stat prefix changes.
+  ConfigHelper new_config_helper(version_, config_helper_.bootstrap());
+  new_config_helper.addConfigModifier(
+      [](envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager&
+             hcm) {
+        for (auto& http_filter : *hcm.mutable_http_filters()) {
+          if (http_filter.name() == "envoy.filters.http.jwt_authn") {
+            JwtAuthentication config;
+            ASSERT_TRUE(http_filter.typed_config().UnpackTo(&config));
+            config.set_stat_prefix("new.");
+            std::ignore = http_filter.mutable_typed_config()->PackFrom(config);
+          }
+        }
+      });
+  new_config_helper.setLds("1");
+  test_server_->waitForCounter("listener_manager.listener_in_place_updated", testing::Eq(1));
+  test_server_->waitForGauge("listener_manager.total_filter_chains_draining", testing::Eq(1));
+
+  // The new filter chain fetches, and the old one has stopped. Wait for several refetch periods of
+  // the new filter chain to give the old one the chance to fetch again if it had not stopped.
+  test_server_->waitForCounter(new_failed, testing::Ge(1));
+  const uint64_t old_failed_after_drain = test_server_->counter(old_failed)->value();
+  const uint64_t new_failed_after_drain = test_server_->counter(new_failed)->value();
+  test_server_->waitForCounter(new_failed, testing::Ge(new_failed_after_drain + 3));
+  EXPECT_EQ(old_failed_after_drain, test_server_->counter(old_failed)->value());
+
+  // The old filter chain is still draining, so its fetcher is alive but idle.
+  EXPECT_EQ(1U, test_server_->gauge("listener_manager.total_filter_chains_draining")->value());
+}
+
 class PerRouteIntegrationTest : public HttpProtocolIntegrationTest {
 public:
   void setup(const std::string& filter_config, const PerRouteConfig& per_route) {

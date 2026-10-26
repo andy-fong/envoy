@@ -279,6 +279,10 @@ struct ExtraFactoryContext {
   // NOTE: declared last so that the aggregate initialization of the members that were here before
   // it keeps working unchanged.
   OptRef<Stats::Scope> stats_prefix_scope = std::nullopt;
+  // Optional drain decision of the owning listener filter chain. May be nullopt for contexts where
+  // no listener filter chain is available, such as upstream or embedded filter configurations.
+  // Factories that need a drain decision should fall back to the server drain manager.
+  OptRef<const Network::DrainDecision> drain_decision = std::nullopt;
 
   /**
    * @return the scope to use for stats: this context's own scope if it has one, otherwise the scope
@@ -336,6 +340,7 @@ struct ExtraFactoryContext {
     ExtraFactoryContext extra_context{context.messageValidationVisitor(), stats_prefix};
     extra_context.init_manager = context.initManager();
     extra_context.scope = context.scope();
+    extra_context.drain_decision = context.drainDecision();
     // The HTTP connection manager is the only context that has a scope named after the stats
     // prefix of its filters, hence the type check rather than a method on FactoryContext. The scope
     // stands in for one prefix only, so it is not handed to a filter that is created with a
