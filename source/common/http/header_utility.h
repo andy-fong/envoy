@@ -26,6 +26,18 @@ namespace Http {
  */
 class HeaderUtility {
 public:
+  /**
+   * Returns x-request-id for logging, or "-" when the headers or ID are absent or empty.
+   * The returned view borrows header storage and must not be retained across header mutations.
+   */
+  static absl::string_view getRequestIdForLogging(RequestHeaderMapOptConstRef headers) {
+    if (!headers.has_value()) {
+      return "-";
+    }
+    const absl::string_view request_id = headers->getRequestIdValue();
+    return request_id.empty() ? "-" : request_id;
+  }
+
   enum class HeaderMatchType {
     Value,
     Regex,

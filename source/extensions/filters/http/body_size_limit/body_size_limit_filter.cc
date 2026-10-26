@@ -4,6 +4,7 @@
 #include "envoy/http/codes.h"
 
 #include "source/common/common/logger.h"
+#include "source/common/http/header_utility.h"
 
 namespace Envoy {
 namespace Extensions {
@@ -66,20 +67,15 @@ void BodySizeLimitFilter::sizeExceeded(uint64_t length, const char* logMessage,
     client_address = client_addr->asStringView();
   }
 
-  absl::string_view path("/");
-  auto headers = decoder_callbacks_->requestHeaders();
-  if (headers) {
-    path = headers->getPathValue();
-  }
-
   auto upstream_info = decoder_callbacks_->streamInfo().upstreamInfo();
   absl::string_view target_host;
   if (upstream_info && upstream_info->upstreamHost() && upstream_info->upstreamHost()->address()) {
     target_host = upstream_info->upstreamHost()->address()->asStringView();
   }
 
-  ENVOY_LOG(error, "{} ({} > {}), client: {}, target: {}{}", logMessage, length,
-            config_->maxRequestBytes(), client_address, target_host, path);
+  ENVOY_LOG(error, "{} ({} > {}), client: {}, target: {}, request_id: {}", logMessage, length,
+            config_->maxRequestBytes(), client_address, target_host,
+            Http::HeaderUtility::getRequestIdForLogging(decoder_callbacks_->requestHeaders()));
 
   decoder_callbacks_->sendLocalReply(Http::Code::PayloadTooLarge, replyText, nullptr, std::nullopt,
                                      StreamInfo::ResponseCodeDetails::get().RequestPayloadTooLarge);
