@@ -170,7 +170,13 @@ compliancePolicyFromProto(
     const envoy::extensions::transport_sockets::tls::v3::TlsParameters& params) {
   switch (params.compliance_policies_size()) {
   case 0:
+#ifdef ENVOY_DEFAULT_COMPLIANCE_POLICY_FIPS_202205
+    // BoringSSL-FIPS builds default to the FIPS 202205 compliance policy for both
+    // upstream (cluster) and downstream (listener) TLS contexts.
+    return envoy::extensions::transport_sockets::tls::v3::TlsParameters::FIPS_202205;
+#else
     return absl::nullopt;
+#endif
   case 1:
     return params.compliance_policies(0);
   default:
