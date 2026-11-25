@@ -263,6 +263,12 @@ envoy_cc_library(
     hdrs = [
         "utility.h",
     ],
+    # In BoringSSL-FIPS builds, default the TLS compliance policy to FIPS_202205
+    # when none is explicitly configured.
+    copts = select({
+        "//bazel:using_boringssl_fips": ["-DENVOY_DEFAULT_COMPLIANCE_POLICY_FIPS_202205"],
+        "//conditions:default": [],
+    }),
     external_deps = ["ssl"],
     deps = [
         "//envoy/ssl:tls_certificate_config_interface",
